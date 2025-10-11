@@ -1,3 +1,6 @@
+import clsx, { type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
 export const randomString = (len: number) => {
   const randomVs = new Uint32Array(len);
   crypto.getRandomValues(randomVs);
@@ -20,4 +23,8 @@ export const hash = async (
     .map((item) => item.toString(16).padStart(2, "0"))
     .join("");
   return { hash, salt };
+};
+
+export const cn = (...inputs: ClassValue[]) => {
+  return twMerge(clsx(inputs));
 };

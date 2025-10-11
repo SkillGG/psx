@@ -1,0 +1,25 @@
+{
+  "tailwindCSS.classFunctions": ["cn"],
+  "tailwindCSS.classAttributes": [
+    "class",
+    "className",
+    "classNames",
+    "ngClass",
+    "class:list"
+  ],
+  "files.associations": { "*.css": "tailwindcss" },
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+  "codemetrics.nodeconfiguration.ReturnStatement": 0,
+  "codemetrics.nodeconfiguration.CaseClause": 0,
+  "codemetrics.nodeconfiguration.DefaultClause": 0,
+  "codemetrics.basics.ComplexityLevelExtreme": 30,
+  "codemetrics.basics.CodeLensHiddenUnder": 10,
+  "codemetrics.nodeconfiguration.AnyKeyword": 100,
+  "codemetrics.nodeconfiguration.ArrowFunction": 0,
+  "codemetrics.nodeconfiguration.ArrowFunctionDescription": "Arrow functions with something bad inside, but codemetrics sucks and won't tell you what",
+  "codemetrics.nodeconfiguration.JsxElement": 0,
+  "codemetrics.nodeconfiguration.JsxSelfClosingElement": 0,
+  "codemetrics.nodeconfiguration.FunctionType": 0,
+  "editor.formatOnSave": true,
+  "files.autoSave": "afterDelay"
+}

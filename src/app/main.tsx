@@ -1,8 +1,11 @@
-"use client";
-
-import { useState } from "react";
-import { api } from "~/trpc/react";
+import { GameList } from "./_components/gameList";
+import { UserNav } from "./_components/userNav";
 
 export const Main = () => {
-  return <></>;
+  return (
+    <>
+      <UserNav />
+      <GameList />
+    </>
+  );
 };

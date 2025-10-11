@@ -1,11 +1,10 @@
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { authProcedure, USER_COOKIE } from "../auth";
+import { loginProcedure, USER_COOKIE } from "../auth";
 import { hash, randomString } from "~/utils/utils";
 import { serialize as serializeCookie } from "cookie";
 
-import { Temporal } from "temporal-polyfill";
 import { SERVER_ERRS } from "~/utils/server_errors";
 import type { PrismaClient } from "@prisma/client";
 
@@ -13,40 +12,58 @@ type ResultOrErr<T = undefined> = Promise<
   T | { err: (typeof SERVER_ERRS)[keyof typeof SERVER_ERRS] }
 >;
 
+const aYear = () => 60 * 60 * 24 * 365;
+
+const nextYear = (now?: Date) =>
+  new Date((now ?? new Date()).getTime() + 1000 * aYear());
+
+const createUserSessionObject = () => {
+  return {
+    token: randomString(32),
+    maxAge: aYear(),
+  };
+};
+
 const createUserSession = async (db: PrismaClient, userid: string) => {
   return await db.session.create({
-    data: {
-      token: randomString(32),
-      maxAge: Temporal.Duration.from("p1y").milliseconds,
-      user: {
-        connect: {
-          id: userid,
-        },
-      },
-    },
+    data: { ...createUserSessionObject(), userId: userid },
   });
 };
 
-const setTokenCookie = (h: Headers, token: string) => {
+const setTokenCookie = (h: Headers, token: string, time?: Date) => {
   h.append(
     "Set-Cookie",
     serializeCookie(USER_COOKIE, token, {
-      expires: new Date(
-        Temporal.Now.instant().add(
-          Temporal.Duration.from("p1y"),
-        ).epochMilliseconds,
-      ),
+      expires: nextYear(time),
     }),
   );
 };
 
 export const userRouter = createTRPCRouter({
-  getData: authProcedure.query(({ ctx: { user } }) => {
-    return { user: { nick: user.nick, email: user.email, id: user.id } };
+  getData: loginProcedure.query(({ ctx: { user } }) => {
+    return {
+      user,
+    };
   }),
   register: publicProcedure
     .input(z.object({ login: z.string(), pass: z.string(), email: z.string() }))
     .mutation(async ({ input: { login, pass, email }, ctx }): ResultOrErr => {
+      if (
+        !login ||
+        !/^[a-z0-9!@#$%^&*()_+\-=\{\}\[\];':",.<>\\\|`~]+$/i.exec(login)
+      )
+        return { err: SERVER_ERRS.INVALID_USERNAME };
+
+      if (!pass) return { err: SERVER_ERRS.INVALID_PASSWORD };
+
+      if (pass.length < 8) return { err: SERVER_ERRS.PASSWORD_TOO_SHORT };
+
+      if (!/[a-z0-9!@#$%^&*()_+\-=\{\}\[\];':",.<>\\|`~]{8,}/i.exec(pass))
+        return { err: SERVER_ERRS.PASSWORD_WITH_INVALID_CHARACTERS };
+
+      if (!email || !z.string().email().safeParse(email).success)
+        return { err: SERVER_ERRS.INVALID_EMAIL };
+
       const user = await ctx.db.user.findFirst({
         where: {
           OR: [
@@ -68,7 +85,10 @@ export const userRouter = createTRPCRouter({
 
       const { hash: password, salt } = await hash(pass, [email, login]);
 
-      const newUser = await ctx.db.user.create({
+      await ctx.db.user.create({
+        include: {
+          Session: true,
+        },
         data: {
           email,
           nick: login,
@@ -76,10 +96,13 @@ export const userRouter = createTRPCRouter({
           salt,
         },
       });
-
-      const session = await createUserSession(ctx.db, newUser.nick);
-      setTokenCookie(ctx.resHeaders, session.token);
     }),
+  logout: publicProcedure.mutation(({ ctx }) => {
+    ctx.resHeaders.set(
+      "Set-Cookie",
+      serializeCookie(USER_COOKIE, "", { maxAge: 1 }),
+    );
+  }),
   login: publicProcedure
     .input(z.object({ login: z.string(), pass: z.string() }))
     .mutation(async ({ input: { login, pass }, ctx }): ResultOrErr => {
@@ -113,6 +136,6 @@ export const userRouter = createTRPCRouter({
       // create session
       const session = await createUserSession(ctx.db, userInDB.id);
 
-      setTokenCookie(ctx.resHeaders, session.token);
+      setTokenCookie(ctx.resHeaders, session.token, session.date);
     }),
 });
