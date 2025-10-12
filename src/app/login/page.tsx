@@ -9,16 +9,17 @@ import DarkModeSwitch, { AccentSwitch } from "../_components/themeSwitches";
 import Link from "next/link";
 import { useGoBack } from "../hooks/goBack";
 import { useSearchParams } from "next/navigation";
+import { Spinner } from "../_components/spinner";
 
 const LoginForm = () => {
   const searchParams = useSearchParams();
+  const loginMutation = api.user.login.useMutation();
+  const utils = api.useUtils();
 
   const [pass, setPass] = useState<string>("");
   const [login, setLogin] = useState<string>(searchParams.get("ras") ?? "");
 
-  const { backParam, goBack } = useGoBack();
-
-  const loginMutation = api.user.login.useMutation();
+  const { backParam } = useGoBack();
 
   const [err, setError] = useState("");
   const [capslock, setCapslock] = useState(false);
@@ -83,7 +84,7 @@ const LoginForm = () => {
           if (loginSuccess) {
             setError(SERVER_ERROR_MESSAGE[loginSuccess.err]);
           } else {
-            goBack();
+            await utils.user.invalidate();
           }
         }}
       >
@@ -196,13 +197,18 @@ const LoginForm = () => {
             className={cn(
               "rounded-md bg-(--button-submit-bg) px-4 py-2 font-semibold",
               "w-full basis-[200%] cursor-pointer text-(--button-submit-text)",
-              "hover:bg-(--button-submit-hover-bg)",
+              "block hover:bg-(--button-submit-hover-bg)",
               "focus:ring-2 focus:ring-(color:--input-focus-border) focus:outline-none",
-              "disabled:cursor-not-allowed disabled:opacity-50",
+              "disabled:cursor-not-allowed disabled:brightness-75",
+              "disabled:hover:bg-(--button-submit-bg)",
             )}
             disabled={loginMutation.isPending}
           >
-            {loginMutation.isPending ? "Logging in..." : "Login"}
+            {loginMutation.isPending ? (
+              <Spinner className={"mx-auto h-6 w-6 dark:brightness-200"} />
+            ) : (
+              "Login"
+            )}
           </button>
           <Link
             href={`/register${backParam}`}
@@ -226,7 +232,7 @@ export default function LoginPage() {
   const { goBack } = useGoBack();
 
   if (user.logged) {
-    goBack();
+    setTimeout(() => goBack(), 100);
     return <></>;
   }
 

@@ -5,15 +5,19 @@ import { createContext, useContext } from "react";
 import { api } from "~/trpc/react";
 import { LoadPage } from "../_components/loadPage";
 
+export type User = {
+  nick: string;
+  id: string;
+  email: string;
+};
+
 type UserData =
   | {
       logged: false;
     }
-  | {
+  | ({
       logged: true;
-      nick: string;
-      id: string;
-    };
+    } & User);
 
 const UserContext = createContext<UserData | null>(null);
 
@@ -21,6 +25,12 @@ export const useUser = () => {
   const ctx = useContext(UserContext);
   if (!ctx) throw new Error("useUser must be used within UserProvider");
   return ctx;
+};
+
+export const useLoggedUser = () => {
+  const user = useUser();
+  if (!user.logged) return null;
+  return user;
 };
 
 export const useUserData_ = (): UserData | { fetching: true } => {

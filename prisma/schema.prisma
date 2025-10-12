@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
+    provider        = "prisma-client-js"
+    previewFeatures = ["typedSql"]
 }
 
 datasource db {
@@ -14,6 +15,12 @@ enum Console {
     PS1
     PS2
     PSP
+}
+
+enum Status {
+    ADMIN
+    MOD
+    USER
 }
 
 model Game {
@@ -53,6 +60,8 @@ model User {
     email     String   @unique
     createdAt DateTime @default(now())
     password  String
+
+    status Status @default(USER)
 
     salt    String
     Session Session[]

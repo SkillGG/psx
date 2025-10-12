@@ -10,6 +10,7 @@ const fetchUser = async (db: PrismaClient, token: string) => {
       id: true,
       nick: true,
       email: true,
+      status: true,
     },
     where: {
       Session: {

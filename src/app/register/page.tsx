@@ -88,7 +88,7 @@ const RegisterForm = () => {
             setError(SERVER_ERROR_MESSAGE[registered.err]);
             setErrFields(serverErrToFields(registered.err));
           } else {
-            goBack(`/login?ras=${login}`);
+            goBack({ path: `/login?ras=${login}` });
           }
         }}
       >

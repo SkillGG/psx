@@ -8,8 +8,8 @@ export const useGoBack = () => {
 
   return {
     backParam: back === "/" ? "" : `?back=${back}`,
-    goBack: (force?: string) => {
-      router.replace(force ?? back);
+    goBack: (opts?: { path?: string; timeout?: number }) => {
+      setTimeout(() => router.replace(opts?.path ?? back), opts?.timeout ?? 0);
     },
   };
 };

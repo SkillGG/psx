@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { loginProcedure, USER_COOKIE } from "../auth";
+import { loginProcedure, USER_COOKIE, userProcedure } from "../auth";
 import { hash, randomString } from "~/utils/utils";
 import { serialize as serializeCookie } from "cookie";
 
@@ -40,9 +40,18 @@ const setTokenCookie = (h: Headers, token: string, time?: Date) => {
 };
 
 export const userRouter = createTRPCRouter({
+  isAdmin: userProcedure.query(({ ctx: { user } }) => {
+    return user.status === "ADMIN";
+  }),
   getData: loginProcedure.query(({ ctx: { user } }) => {
     return {
-      user,
+      user: user
+        ? {
+            id: user.id,
+            nick: user.nick,
+            email: user.email,
+          }
+        : null,
     };
   }),
   register: publicProcedure
@@ -137,5 +146,23 @@ export const userRouter = createTRPCRouter({
       const session = await createUserSession(ctx.db, userInDB.id);
 
       setTokenCookie(ctx.resHeaders, session.token, session.date);
+    }),
+  lookupUser: publicProcedure
+    .input(z.string())
+    .query(async ({ ctx, input }) => {
+      const userData = await ctx.db.user.findFirst({
+        where: {
+          id: input,
+        },
+        select: {
+          id: true,
+          nick: true,
+          email: true,
+          Library: true,
+        },
+      });
+
+      if (userData) return userData;
+      return null;
     }),
 });

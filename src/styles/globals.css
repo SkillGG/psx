@@ -13,6 +13,8 @@
 
 .root {
   &.light {
+    --bg-hover-brightness: 90%;
+
     --main-bg: var(--color-white);
     --deeper-bg: var(--color-white);
     --dialog-bg: var(--color-gray-100);
@@ -40,6 +42,8 @@
   }
 
   &.dark {
+    --bg-hover-brightness: 150%;
+
     --main-bg: var(--color-slate-800);
     --deeper-bg: var(--color-slate-900);
     --dialog-bg: var(--main-bg);

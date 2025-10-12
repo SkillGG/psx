@@ -1,19 +1,16 @@
 import { cn } from "~/utils/utils";
+import { Spinner } from "./spinner";
+import type { ClassValue } from "clsx";
 
-export const LoadPage = () => {
+export const LoadPage = ({ className }: { className?: ClassValue }) => {
   return (
     <main
       className={cn(
         "flex h-screen w-full items-center justify-center bg-(color:--main-bg) text-(--label-text)",
+        className,
       )}
     >
-      <div
-        className={cn(
-          "flex flex-col items-center rounded-xl border-1 border-(--regular-border) px-8 py-8 shadow-lg",
-        )}
-      >
-        Loading...
-      </div>
+      <Spinner className={"h-10 w-10"} width={"6px"} />
     </main>
   );
 };
