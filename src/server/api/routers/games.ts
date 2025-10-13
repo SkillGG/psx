@@ -1,32 +1,68 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
-import type { PrismaClient } from "@prisma/client";
 import type { Game } from "@prisma/client";
-import { usergames } from "@prisma/client/sql";
+import { adminProcedure } from "../auth";
+import { queryGames } from "~/utils/gameQueries";
 
-const getGames = async (
-  db: PrismaClient,
-  userID?: string,
-  [skip, take] = [0, 100],
-): Promise<Game[]> => {
-  const select = {
-    id: true,
-    console: true,
-    title: true,
-  };
+const ConsoleType = z.enum(["PS1", "PS2", "PSP"]);
+const RegionType = z.enum(["PAL", "NTSC", "NTSCJ"]);
 
-  if (!userID) return await db.game.findMany({ select, skip, take });
+const GameData = z.object({
+  id: z.string(),
+  title: z.string(),
+  console: ConsoleType,
+  region: RegionType,
+});
 
-  const games = await db.$queryRawTyped(usergames(userID, take, skip));
+const QueryColumn = z.enum(["id", "title", "console", "region"]);
+const SearchSchema = z
+  .object({
+    id: z.string().optional(),
+    title: z.string().optional(),
+    console: ConsoleType.optional(),
+    region: RegionType.optional(),
+  })
+  .partial();
 
-  return games;
-};
+export type SearchSchema = z.infer<typeof SearchSchema>;
+
+const SortSchema = z.record(
+  QueryColumn,
+  z.object({
+    priority: z.number(),
+    sort: z.enum(["asc", "desc"]),
+  }),
+);
+export type SortSchema = z.infer<typeof SortSchema>;
 
 export const gameRouter = createTRPCRouter({
   list: publicProcedure
-    .input(z.string().optional())
+    .input(
+      z.object({
+        userID: z.string().optional(),
+        search: SearchSchema.optional(),
+        sort: SortSchema.optional(),
+        skip: z.number().int().optional(),
+        take: z.number().int().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      const games = await getGames(ctx.db, input);
+      const games = await queryGames(
+        ctx.db,
+        input.userID,
+        input.sort,
+        input.search,
+        [input.skip ?? 0, input.take ?? 100],
+      );
       return games;
+    }),
+  addSingle: adminProcedure
+    .input(z.object({ game: GameData }))
+    .mutation(async ({ ctx, input }) => {
+      const newGame: Game = input.game;
+      const nG = await ctx.db.game.create({
+        data: newGame,
+      });
+      return nG;
     }),
 });

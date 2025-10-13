@@ -50,3 +50,9 @@ export const userProcedure = publicProcedure.use(async (opts) => {
     },
   });
 });
+
+export const adminProcedure = userProcedure.use(async (opts) => {
+  if (opts.ctx.user.status !== "ADMIN")
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  return opts.next();
+});

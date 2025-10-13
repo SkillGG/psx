@@ -187,11 +187,15 @@
     --button-remove-bg: var(--danger-600);
     --button-remove-hover-bg: var(--danger-400);
     --button-remove-text: var(--color-white);
+    --button-remove-nobg-text: var(--danger-500);
+    --button-remove-nobg-hover-text: var(--danger-600);
   }
   &.dark {
     --button-remove-bg: var(--danger-600);
     --button-remove-hover-bg: var(--danger-500);
     --button-remove-text: var(--color-white);
+    --button-remove-nobg-text: var(--danger-300);
+    --button-remove-nobg-hover-text: var(--danger-200);
   }
   &.light {
     --button-cancel-bg: var(--notice-700);
@@ -208,11 +212,15 @@
     --button-neutral-hover-bg: var(--accent-400);
     --button-neutral-text: var(--accent-800);
     --button-neutral-inset-ring: var(--accent-400);
+    --button-neutral-nobg-text: var(--accent-500);
+    --button-neutral-nobg-hover-text: var(--accent-600);
   }
   &.dark {
     --button-neutral-bg: var(--accent-100);
     --button-neutral-hover-bg: var(--accent-50);
     --button-neutral-text: var(--accent-700);
+    --button-neutral-nobg-text: var(--accent-500);
+    --button-neutral-nobg-hover-text: var(--accent-600);
   }
   &.light {
     --button-muted-bg: var(--muted-300);
