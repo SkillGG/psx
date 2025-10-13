@@ -14,6 +14,7 @@
 .root {
   &.light {
     --bg-hover-brightness: 90%;
+    --bg-checked-brightness: 80%;
 
     --main-bg: var(--color-white);
     --deeper-bg: var(--color-white);
@@ -43,6 +44,7 @@
 
   &.dark {
     --bg-hover-brightness: 150%;
+    --bg-checked-brightness: 100%;
 
     --main-bg: var(--color-slate-800);
     --deeper-bg: var(--color-slate-900);

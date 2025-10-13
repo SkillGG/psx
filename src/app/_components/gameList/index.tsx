@@ -10,7 +10,6 @@ import { cn } from "~/utils/utils";
 export const GameList = ({
   userID,
   editable,
-  toggleable,
 }: {
   userID?: string;
   editable?: boolean;
@@ -51,16 +50,6 @@ export const GameList = ({
 
   return (
     <div>
-      {toggleable && (
-        <div className="absolute top-2 left-2">
-          <button
-            className="cursor-pointer"
-            onClick={() => setForceAll((p) => !p)}
-          >
-            {forceAll ? "Showing unordered" : "Showing ordered"}
-          </button>
-        </div>
-      )}
       <div className={"grid grid-cols-[2fr_1fr_1fr_5fr] text-(--label-text)"}>
         <FiltersDialog
           classNames={{
@@ -73,6 +62,14 @@ export const GameList = ({
           }}
           filters={filters}
           setFilters={setFilters}
+          userSort={
+            !!userID
+              ? {
+                  sort: !forceAll,
+                  toggle: () => setForceAll((p) => !p),
+                }
+              : undefined
+          }
         />
         <GameRow
           raw={{
@@ -81,10 +78,22 @@ export const GameList = ({
             region: "Region",
             title: "Title",
           }}
-          classNames={{ all: "text-center font-bold text-xl" }}
+          classNames={{ all: "text-center font-bold text-2xl" }}
         />
         {games.map((q) => (
-          <GameRow game={q} key={"game_" + q.id} />
+          <GameRow
+            game={q}
+            key={"game_" + q.id}
+            classNames={{
+              all: cn(
+                "text-center",
+                q.region === "PAL" && "text-green-500",
+                q.region === "NTSC" && "text-orange-500",
+                q.region === "NTSCJ" && "text-pink-500",
+              ),
+              title: "text-(--regular-text)",
+            }}
+          />
         ))}
         {editable && (
           <div>

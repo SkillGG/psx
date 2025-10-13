@@ -14,16 +14,28 @@ export const GameRow = ({
 
   return (
     <>
-      <div className={cn("col-1", classNames?.all, classNames?.id)}>
+      <div
+        className={cn("col-1", classNames?.all, classNames?.id)}
+        data-value={strings.id}
+      >
         {strings.id}
       </div>
-      <div className={cn("col-2", classNames?.all, classNames?.console)}>
+      <div
+        className={cn("col-2", classNames?.all, classNames?.console)}
+        data-value={strings.console}
+      >
         {strings.console}
       </div>
-      <div className={cn("col-3", classNames?.all, classNames?.region)}>
+      <div
+        className={cn("col-3", classNames?.all, classNames?.region)}
+        data-value={strings.region}
+      >
         {strings.region}
       </div>
-      <div className={cn("col-4", classNames?.all, classNames?.title)}>
+      <div
+        className={cn("col-4", classNames?.all, classNames?.title)}
+        data-value={strings.title}
+      >
         {strings.title}
       </div>
     </>
