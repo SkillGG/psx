@@ -26,7 +26,7 @@ const SearchSchema = z
 
 export type SearchSchema = z.infer<typeof SearchSchema>;
 
-const SortSchema = z.record(
+const SortSchema = z.partialRecord(
   QueryColumn,
   z.object({
     priority: z.number(),
@@ -38,13 +38,15 @@ export type SortSchema = z.infer<typeof SortSchema>;
 export const gameRouter = createTRPCRouter({
   list: publicProcedure
     .input(
-      z.object({
-        userID: z.string().optional(),
-        search: SearchSchema.optional(),
-        sort: SortSchema.optional(),
-        skip: z.number().int().optional(),
-        take: z.number().int().optional(),
-      }),
+      z
+        .object({
+          userID: z.string().optional(),
+          search: SearchSchema.optional(),
+          sort: SortSchema.optional(),
+          skip: z.number().int().optional(),
+          take: z.number().int().optional(),
+        })
+        .partial(),
     )
     .query(async ({ ctx, input }) => {
       const games = await queryGames(

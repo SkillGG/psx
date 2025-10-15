@@ -3,6 +3,7 @@ import type React from "react";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import { cn } from "~/utils/utils";
+import { importGamesFromJson } from "./import";
 
 export const NewGameCreationDialog = ({
   ref,
@@ -142,12 +143,20 @@ export const NewGameCreationDialog = ({
             Add
           </button>
           <button
+            type="button"
             className={cn(
               "cursor-pointer rounded-lg border-1 border-(--complement-300)",
               "px-2 py-1 hover:border-(--complement-400)",
               "hover:backdrop-brightness-(--bg-hover-brightness)",
               "text-(--complement-500)",
             )}
+            onClick={async () => {
+              const games = await importGamesFromJson(consoleType);
+              if (games) {
+                //
+                console.log("Will send to server", games);
+              }
+            }}
           >
             Import JSON
           </button>

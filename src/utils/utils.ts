@@ -1,5 +1,6 @@
 import clsx, { type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import z from "zod";
 
 export const randomString = (len: number) => {
   const randomVs = new Uint32Array(len);
@@ -28,3 +29,17 @@ export const hash = async (
 export const cn = (...inputs: ClassValue[]) => {
   return twMerge(clsx(inputs));
 };
+
+export const zodStringToJson = z.string().transform((val, { issues }) => {
+  try {
+    return JSON.parse(val) as unknown;
+  } catch {
+    issues.push({
+      code: "custom",
+      message: "Invalid JSON",
+      input: val,
+    });
+
+    return z.NEVER;
+  }
+});

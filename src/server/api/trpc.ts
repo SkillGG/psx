@@ -12,7 +12,7 @@ import { ZodError } from "zod";
 
 import { db } from "~/server/db";
 
-import cookie from "cookie";
+import { parse as parseCookie } from "cookie";
 
 /**
  * 1. CONTEXT
@@ -31,7 +31,7 @@ export const createTRPCContext = async (opts: {
   resHeaders: Headers;
 }) => {
   const userHeader = opts.headers.get("Cookie");
-  const cookies = cookie.parse(userHeader ?? "");
+  const cookies = parseCookie(userHeader ?? "");
   return {
     db,
     cookies,
