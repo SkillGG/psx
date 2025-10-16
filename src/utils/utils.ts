@@ -43,3 +43,5 @@ export const zodStringToJson = z.string().transform((val, { issues }) => {
     return z.NEVER;
   }
 });
+export const isNotNull = <T>(v: T | null | undefined): v is NonNullable<T> =>
+  !!v;

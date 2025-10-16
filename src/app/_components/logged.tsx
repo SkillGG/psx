@@ -2,18 +2,21 @@
 
 // import { useState } from "react";
 import { useState } from "react";
-import type { User } from "../hooks/user";
+import { type User } from "../hooks/user";
 import { cn } from "~/utils/utils";
 import DarkModeSwitch, { AccentSwitch } from "./themeSwitches";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { Spinner } from "./spinner";
+import { usePathname } from "next/navigation";
 
 export const LoggedUI = ({ user }: { user: User }) => {
   const logout = api.user.logout.useMutation();
   const utils = api.useUtils();
 
   const [anchor, setAnchor] = useState<[number, number]>([0, 0]);
+
+  const path = usePathname();
 
   return (
     <>
@@ -47,17 +50,19 @@ export const LoggedUI = ({ user }: { user: User }) => {
           }}
           popover="auto"
         >
-          <li>
-            <Link
-              href={"/profile/" + user.id}
-              className={cn(
-                "block w-full cursor-pointer px-2 py-2 text-center",
-                "hover:backdrop-brightness-(--bg-hover-brightness)",
-              )}
-            >
-              Profile
-            </Link>
-          </li>
+          {!path.includes("profile") && !path.includes(user.id) && (
+            <li>
+              <Link
+                href={"/profile/" + user.id}
+                className={cn(
+                  "block w-full cursor-pointer px-2 py-2 text-center",
+                  "hover:backdrop-brightness-(--bg-hover-brightness)",
+                )}
+              >
+                Profile
+              </Link>
+            </li>
+          )}
           <li>
             <button
               onClick={async () => {

@@ -1,8 +1,7 @@
 import type { Game } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import chalk from "chalk";
-
-const isNotNull = <T>(v: T | null | undefined): v is NonNullable<T> => !!v;
+import { isNotNull } from "./utils";
 
 export const queryGames = async (
   db: PrismaClient,
