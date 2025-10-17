@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { SearchSchema, SortSchema } from "~/server/api/routers/games";
 import { cn } from "~/utils/utils";
+import { PopoverDialog, type PopoverRef } from "../popoverDialog";
 
 export type GameListFilters = {
   filter: SearchSchema;
@@ -240,195 +241,181 @@ export const FiltersDialog = ({
   };
   userSort?: { sort: boolean; toggle: () => void };
 }) => {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
+  const popoverRef = useRef<PopoverRef>(null);
   const [filters, setFilters] = useState(initFilters);
-
   const [uSortVal, setUSortVal] = useState(userSort?.sort ?? false);
-
   const uSort = useMemo(() => {
     return { sort: uSortVal, toggle: () => setUSortVal((p) => !p) };
   }, [uSortVal]);
 
   return (
-    <>
-      <dialog
-        ref={dialogRef}
+    <PopoverDialog
+      ref={popoverRef}
+      Actuator={<button className={cn(classNames?.btn)}>Filter & Sort</button>}
+    >
+      <form
+        className={cn("flex flex-col gap-2")}
         onSubmit={(e) => {
           e.preventDefault();
-          dialogRef.current?.hidePopover();
           if (userSort) {
             if (uSort.sort !== userSort.sort) {
               userSort.toggle();
             }
           }
+          console.log("current popoverD ref", popoverRef.current);
+          popoverRef.current?.hide();
           saveFilters(filters);
         }}
-        popover="auto"
-        className={cn(
-          "m-auto border-1 border-(--regular-border) bg-(--deeper-bg)/80",
-          "rounded-xl px-4 py-2 text-(--label-text)",
-        )}
       >
-        <form className={cn("flex flex-col gap-2")}>
-          <h3 className="text-center text-xl text-(--regular-text)">Filters</h3>
-          <Filter
-            label="Search query"
-            type="string"
-            onChange={(e) => {
-              setFilters((p) => {
-                if (!e) {
-                  const nP = { ...p };
-                  delete nP?.filter?.id;
-                  delete nP?.filter?.title;
-                  return nP;
-                }
+        <h3 className="text-center text-xl text-(--regular-text)">Filters</h3>
+        <Filter
+          label="Search query"
+          type="string"
+          onChange={(e) => {
+            setFilters((p) => {
+              if (!e) {
+                const nP = { ...p };
+                delete nP?.filter?.id;
+                delete nP?.filter?.title;
+                return nP;
+              }
+              return {
+                ...p,
+                filter: {
+                  ...p.filter,
+                  id: e,
+                  title: e,
+                },
+              };
+            });
+          }}
+          value={filters.filter.id ?? ""}
+        />
+        <Filter<Console | undefined>
+          type="radio"
+          label="Console"
+          onChange={(v) => {
+            setFilters((p) => {
+              const nP = { ...p };
+              if (!v) {
+                delete nP.filter.console;
+                return nP;
+              } else {
                 return {
                   ...p,
                   filter: {
                     ...p.filter,
-                    id: e,
-                    title: e,
+                    console: v,
                   },
                 };
-              });
-            }}
-            value={filters.filter.id ?? ""}
-          />
-          <Filter<Console | undefined>
-            type="radio"
-            label="Console"
-            onChange={(v) => {
-              setFilters((p) => {
-                const nP = { ...p };
-                if (!v) {
-                  delete nP.filter.console;
-                  return nP;
-                } else {
-                  return {
-                    ...p,
-                    filter: {
-                      ...p.filter,
-                      console: v,
-                    },
-                  };
-                }
-              });
-            }}
-            value={filters.filter.console}
-            values={
-              [
-                ["Any", undefined],
-                ["PS1", "PS1"],
-                ["PS2", "PS2"],
-                ["PSP", "PSP"],
-              ] as const
-            }
-            classNames={[
-              undefined,
-              "has-checked:border-gray-500 has-checked:text-gray-500",
-              "has-checked:border-blue-500 has-checked:text-blue-500",
-              "has-checked:border-purple-500 has-checked:text-purple-500",
-            ]}
-          />
-          <Filter<Region | undefined>
-            type="radio"
-            label="Region"
-            onChange={(v) => {
-              setFilters((p) => {
-                const nP = { ...p };
-                if (!v) {
-                  delete nP.filter.region;
-                  return nP;
-                } else {
-                  return {
-                    ...p,
-                    filter: {
-                      ...p.filter,
-                      region: v,
-                    },
-                  };
-                }
-              });
-            }}
-            value={filters.filter.region}
-            values={
-              [
-                ["Any", undefined],
-                ["PAL", "PAL"],
-                ["NTSC", "NTSC"],
-                ["NTSC-J", "NTSCJ"],
-              ] as const
-            }
-            classNames={[
-              undefined,
-              "has-checked:border-green-500 has-checked:text-green-500",
-              "has-checked:border-orange-500 has-checked:text-orange-500",
-              "has-checked:border-pink-500 has-checked:text-pink-500",
-            ]}
-          />
-          <h3 className="text-center text-xl text-(--regular-text)">
-            Sorting order
-          </h3>
-          <SortPicker
-            sort={filters.sort}
-            userSort={userSort ? uSort : undefined}
-            onChange={(col, val) => {
-              setFilters((p) => {
-                let nSort = { ...p.sort };
-
-                if (!val) delete nSort[col];
-                else {
-                  nSort = { [col]: { sort: val, priority: 1 } };
-                }
-
+              }
+            });
+          }}
+          value={filters.filter.console}
+          values={
+            [
+              ["Any", undefined],
+              ["PS1", "PS1"],
+              ["PS2", "PS2"],
+              ["PSP", "PSP"],
+            ] as const
+          }
+          classNames={[
+            undefined,
+            "has-checked:border-gray-500 has-checked:text-gray-500",
+            "has-checked:border-blue-500 has-checked:text-blue-500",
+            "has-checked:border-purple-500 has-checked:text-purple-500",
+          ]}
+        />
+        <Filter<Region | undefined>
+          type="radio"
+          label="Region"
+          onChange={(v) => {
+            setFilters((p) => {
+              const nP = { ...p };
+              if (!v) {
+                delete nP.filter.region;
+                return nP;
+              } else {
                 return {
                   ...p,
-                  sort: {
-                    ...nSort,
+                  filter: {
+                    ...p.filter,
+                    region: v,
                   },
                 };
-              });
+              }
+            });
+          }}
+          value={filters.filter.region}
+          values={
+            [
+              ["Any", undefined],
+              ["PAL", "PAL"],
+              ["NTSC", "NTSC"],
+              ["NTSC-J", "NTSCJ"],
+            ] as const
+          }
+          classNames={[
+            undefined,
+            "has-checked:border-green-500 has-checked:text-green-500",
+            "has-checked:border-orange-500 has-checked:text-orange-500",
+            "has-checked:border-pink-500 has-checked:text-pink-500",
+          ]}
+        />
+        <h3 className="text-center text-xl text-(--regular-text)">
+          Sorting order
+        </h3>
+        <SortPicker
+          sort={filters.sort}
+          userSort={userSort ? uSort : undefined}
+          onChange={(col, val) => {
+            setFilters((p) => {
+              let nSort = { ...p.sort };
+
+              if (!val) delete nSort[col];
+              else {
+                nSort = { [col]: { sort: val, priority: 1 } };
+              }
+
+              return {
+                ...p,
+                sort: {
+                  ...nSort,
+                },
+              };
+            });
+          }}
+        />
+        <div className="space-around flex w-full gap-2">
+          <button
+            type="submit"
+            className={cn(
+              "w-full cursor-pointer border-1",
+              "border-(--button-submit-bg) px-2 py-1",
+              "text-(--button-submit-nobg-text)",
+              "hover:backdrop-brightness-(--bg-hover-brightness)",
+            )}
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "w-full cursor-pointer border-1",
+              "border-(--button-remove-bg) px-2 py-1",
+              "text-(--button-remove-nobg-text)",
+              "hover:backdrop-brightness-(--bg-hover-brightness)",
+            )}
+            onClick={() => {
+              setUSortVal(userSort?.sort ?? false);
+              setFilters({ ...filters, filter: {}, sort: {} });
             }}
-          />
-          <div className="space-around flex w-full gap-2">
-            <button
-              type="submit"
-              className={cn(
-                "w-full cursor-pointer border-1",
-                "border-(--button-submit-bg) px-2 py-1",
-                "text-(--button-submit-nobg-text)",
-                "hover:backdrop-brightness-(--bg-hover-brightness)",
-              )}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "w-full cursor-pointer border-1",
-                "border-(--button-remove-bg) px-2 py-1",
-                "text-(--button-remove-nobg-text)",
-                "hover:backdrop-brightness-(--bg-hover-brightness)",
-              )}
-              onClick={() => {
-                setUSortVal(userSort?.sort ?? false);
-                setFilters({ ...filters, filter: {}, sort: {} });
-              }}
-            >
-              Reset
-            </button>
-          </div>
-        </form>
-      </dialog>
-      <button
-        className={cn(classNames?.btn)}
-        onClick={() => {
-          dialogRef.current?.showPopover();
-        }}
-      >
-        Filter & Sort
-      </button>
-    </>
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+    </PopoverDialog>
   );
 };

@@ -2,10 +2,11 @@
 import { api } from "~/trpc/react";
 import { Spinner } from "../spinner";
 import { useEffect, useRef, useState } from "react";
-import { NewGameCreationDialog } from "./create";
+import { NewGameCreationForm } from "./create";
 import { GameRow } from "./row";
 import { FiltersDialog, type GameListFilters } from "./filters";
 import { cn } from "~/utils/utils";
+import { PopoverDialog, type PopoverRef } from "../popoverDialog";
 
 export const GameList = ({
   userID,
@@ -38,7 +39,7 @@ export const GameList = ({
     void util.games.list.invalidate();
   }, [forceAll, util.games.list]);
 
-  const newDialog = useRef<HTMLDialogElement>(null);
+  const popoverRef = useRef<PopoverRef>(null);
   if (isFetching || !games)
     return (
       <div className="m-auto flex h-full w-full items-center justify-center">
@@ -97,14 +98,14 @@ export const GameList = ({
         ))}
         {editable && (
           <div>
-            <NewGameCreationDialog ref={newDialog} />
-            <button
-              onClick={() => {
-                newDialog.current?.showPopover();
-              }}
+            <PopoverDialog
+              ref={popoverRef}
+              Actuator={<button>Add a new game</button>}
             >
-              Add a new game
-            </button>
+              <NewGameCreationForm
+                closeDialog={() => popoverRef.current?.hide()}
+              />
+            </PopoverDialog>
           </div>
         )}
       </div>

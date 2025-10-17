@@ -1,6 +1,6 @@
 import type { Console, Game, Region } from "@prisma/client";
 import { z } from "zod/v4";
-import { isNotNull, zodStringToJson } from "~/utils/utils";
+import { zodStringToJson } from "~/utils/utils";
 
 const regionMap = {
   ntsc: "NTSC",
@@ -9,26 +9,38 @@ const regionMap = {
   ntscu: "NTSC",
 } satisfies Record<string, Region>;
 
-type GameData = {
-  data: Game[];
+export type GameData = {
+  data: (Game & { key: string })[];
   warns: {
-    data: Partial<Record<keyof Game, string | undefined>>;
+    data: Partial<Record<keyof Game, string | undefined>> & { key: string };
     message: string;
   }[];
 };
 
 const transformFile = (data: GameList, defConsole: Console) => {
   const ret: GameData = { data: [], warns: [] };
+  let i = 1;
   for (const q of data) {
     const title = "title" in q ? q.title : q.name;
     if (!title || !q.id || !regionMap[q.region]) {
       ret.warns.push({
-        data: { id: q.id, console: defConsole, region: q.region, title: title },
-        message: "Incomplete Game Object",
+        data: {
+          key: `importgame_warn_${i++}`,
+          id: q.id,
+          console: defConsole,
+          region: q.region,
+          title: title,
+        },
+        message: !title
+          ? "Record with no title"
+          : !q.id
+            ? "Record with no ID"
+            : "Invalid Region",
       });
-      return null;
+      continue;
     }
     ret.data.push({
+      key: `importgame_valid_${i++}`,
       id: q.id,
       title,
       console: q.console ?? defConsole,
@@ -54,8 +66,7 @@ type GameList = z.infer<typeof GameList>;
 
 const parseFile = (file: string): GameList => {
   const isJSON = zodStringToJson.safeParse(file);
-  if (!isJSON.success)
-    throw new Error("File doesn't contain json information!");
+  if (!isJSON.success) throw new Error("File is not a valid JSON file!");
 
   const data = isJSON.data;
 
@@ -63,7 +74,10 @@ const parseFile = (file: string): GameList => {
 
   if (!gameList.success) {
     console.error("Zod error parsing file!", gameList.error);
-    throw new Error("File doesn't contain the right values!", gameList.error);
+    throw new Error(
+      "File doesn't have the correct data structure!",
+      gameList.error,
+    );
   }
 
   return gameList.data;
@@ -94,10 +108,7 @@ const loadFile = async (): Promise<string> => {
 export const importGamesFromJson = async (
   consoleType: Console,
 ): Promise<GameData | null> => {
-  const file = await loadFile().catch((err: Error) => {
-    console.log(err.message);
-    return null;
-  });
+  const file = await loadFile();
   if (!file) {
     return null;
   }

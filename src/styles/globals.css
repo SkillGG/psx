@@ -23,7 +23,7 @@
     --regular-text: var(--accent-500);
     --header-text: var(--accent-700);
     --label-text: var(--accent-800);
-    --error-text: var(--error-300);
+    --error-text: var(--error-500);
 
     --regular-border: var(--accent-700);
 
@@ -53,7 +53,7 @@
     --regular-text: var(--accent-400);
     --header-text: var(--accent-200);
     --label-text: var(--accent-100);
-    --error-text: var(--error-900);
+    --error-text: var(--error-300);
 
     --regular-border: var(--accent-700);
 
