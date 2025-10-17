@@ -5,22 +5,7 @@ import { useRef, useState } from "react";
 import { importGamesFromJson, type GameData } from "./parse";
 import type { Console } from "@prisma/client";
 import { Spinner } from "../../spinner";
-
-const simulateUpload = (data: GameData["data"][number], abort: AbortSignal) => {
-  return new Promise<void>((res, rej) => {
-    const time = Math.floor(Math.random() * 500 + 200);
-    const doReject = Math.floor(Math.random() * 10000 + 1) === 976;
-    if (doReject) rej(new Error("Something went wrong"));
-    const timeout = setTimeout(() => {
-      console.log("Processed", data);
-      res();
-    }, time);
-    abort.onabort = () => {
-      clearTimeout(timeout);
-      rej(new Error("Aborted!"));
-    };
-  });
-};
+import { api } from "~/trpc/react";
 
 export const ImportJSONDialog = ({
   classNames,
@@ -47,6 +32,8 @@ export const ImportJSONDialog = ({
     new AbortController(),
   );
 
+  const importBatch = api.games.importBatch.useMutation();
+
   const startUpload = async () => {
     if (!gameData) return;
     setIsUploading(true);
@@ -62,23 +49,21 @@ export const ImportJSONDialog = ({
 
     while (queue.length > 0) {
       const curBatch = queue.splice(0, batchSize);
-      setInQueue(queue.map((q) => q.key));
-      setUploading(curBatch.map((q) => q.key));
-      const promises = curBatch.map(async (q) => {
-        try {
-          await simulateUpload(q, abortController.signal);
-          setUploaded((p) => [...p, q.key]);
-        } catch (err) {
-          console.error("Promise errored out!", err);
-          setErroredOut((prev) => [...prev, q.key]);
-          if (abortController.signal.aborted) return;
-          abortController.abort("Fetch error abort");
-        } finally {
-          setUploading((prev) => prev.filter((f) => f !== q.key));
-        }
-      });
-      await Promise.all(promises);
+      setInQueue(queue.map(({ key }) => key));
+      const curBKeys = curBatch.map(({ key }) => key);
+      setUploading(curBKeys);
+      try {
+        await importBatch.mutateAsync(curBatch);
+      } catch (e) {
+        const err = e as Error;
+        console.warn(err);
+        abortController.abort(err);
+        setErroredOut(curBKeys);
+        break;
+      }
+
       batchNum++;
+      setUploaded((p) => [...p, ...curBKeys]);
       if (abortController.signal.aborted) {
         console.warn("Aborted! Stopping upload");
         break;
@@ -86,6 +71,7 @@ export const ImportJSONDialog = ({
     }
     setIsUploading(false);
     setInQueue([]);
+    setUploading([]);
     popoverRef.current?.enableAutoHide();
     console.log("Finished!");
   };
@@ -93,8 +79,9 @@ export const ImportJSONDialog = ({
   return (
     <>
       <PopoverDialog
+        hideBehavior="manual"
         standalone={".root"}
-        className={cn("min-w-[25%]", classNames?.dialog)}
+        className={cn("max-w-[90vw] min-w-[25%]", classNames?.dialog)}
         Actuator={
           <button
             type="button"
@@ -174,9 +161,32 @@ export const ImportJSONDialog = ({
               {!isUploading && (
                 <>
                   {gameData.warns.length > 0 && (
-                    <div className="basis-full text-(--notice-500)">
-                      WARNS ({gameData.warns.length}):
-                    </div>
+                    <>
+                      <div className="basis-full text-(--notice-500)">
+                        WARNS ({gameData.warns.length}):{" "}
+                        <button
+                          onClick={() => {
+                            gameData.warns.forEach((res) => {
+                              if (!res.potentialFixes) return;
+                              const ignore = res.potentialFixes.find(
+                                (q) => q.label === "Ignore",
+                              );
+                              if (!ignore) return; // cannot ignore
+                              if (
+                                res.potentialFixes.filter(
+                                  (q) => q.label !== "Ignore",
+                                ).length > 0
+                              )
+                                return; // there are non-ingore options
+                              setGameData((p) => (!p ? p : ignore.resolve(p)));
+                            });
+                          }}
+                          className="cursor-pointer rounded-xl border-1 px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
+                        >
+                          Ignore non-solvable
+                        </button>
+                      </div>
+                    </>
                   )}
                   {gameData.warns.map((warn) => (
                     <div
@@ -184,12 +194,12 @@ export const ImportJSONDialog = ({
                       key={warn.data.key}
                       className={cn(
                         "flex-1 rounded-xl border-1 border-(--notice-600) bg-(--notice-500)/10",
-                        "px-2 py-1 text-center text-(--notice-500)",
+                        "relative px-2 py-1 pb-4 text-center text-nowrap text-(--notice-500)",
                       )}
                     >
                       {warn.message}
                       <br />
-                      <div className="block pl-2 text-left text-sm">
+                      <div className="relative block pl-2 text-left text-sm">
                         ID:{" "}
                         {(warn.data.id ?? "undefined") || (
                           <span className="text-(--error-text)">*empty*</span>
@@ -201,6 +211,25 @@ export const ImportJSONDialog = ({
                         )}
                         <br /> Warn: {warn.data.region ?? "undefined"}
                       </div>
+                      {warn.potentialFixes &&
+                        warn.potentialFixes.length > 0 && (
+                          <div className="absolute right-2 bottom-2 float-right flex gap-2 text-xs">
+                            {warn.potentialFixes.map((fix) => {
+                              return (
+                                <button
+                                  className="cursor-pointer rounded-xl border-1 border-green-500 px-2 py-1 text-green-500 hover:backdrop-brightness-(--bg-hover-brightness)"
+                                  key={fix.label}
+                                  onClick={() => {
+                                    const nGD = fix.resolve(gameData);
+                                    setGameData(nGD);
+                                  }}
+                                >
+                                  {fix.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                     </div>
                   ))}
                   {gameData.data.length > 0 && (
@@ -208,60 +237,75 @@ export const ImportJSONDialog = ({
                       CORRECT DATA ({gameData.data.length}):
                     </div>
                   )}
-                  {gameData.data.map((data) => (
-                    <button
-                      type={"button"}
-                      key={data.key}
-                      id={data.key}
-                      className={cn(
-                        "flex-1 basis-[fit-content] rounded-xl border-1 border-(--info-600) bg-(--info-500)/10",
-                        "block cursor-pointer px-2 py-1 text-center text-(--info-500)",
-                        "disabled:cursor-default",
-                        deselected.includes(data.key) &&
-                          "border-(--muted-600) bg-(--muted-500)/10 text-(--muted-500)",
-                        uploaded.includes(data.key) &&
-                          "border-green-500 bg-green-500/10 text-green-300",
-                        erroredOut.includes(data.key) &&
-                          "border-red-500 bg-red-500/10 text-red-300",
-                      )}
-                      onClick={() => {
-                        setDeselected((q) => {
-                          if (q.includes(data.key))
-                            return q.filter((z) => z !== data.key);
-                          return [...q, data.key];
-                        });
-                      }}
-                      disabled={isUploading}
-                    >
-                      <div className="block pl-2 text-left text-sm">
-                        {data.title}
-                        <br />
-                        {data.id} {data.console} / {data.region}
-                      </div>
-                      {inQueue.includes(data.key) && (
-                        <div className="flex gap-4">
-                          Queued{" "}
-                          <Spinner
-                            className="h-6 w-6"
-                            key={data.key + "_spinner"}
-                          />
+                  {gameData.data
+                    .toSorted((p, n) => p.id.localeCompare(n.id))
+                    .map((data, i) => (
+                      <button
+                        type={"button"}
+                        key={data.key}
+                        id={data.key}
+                        className={cn(
+                          "flex-1 basis-[fit-content] rounded-xl border-1 border-(--info-600) bg-(--info-500)/10",
+                          "block cursor-pointer px-2 py-1 text-center text-(--info-500)",
+                          "disabled:cursor-default",
+                          deselected.includes(data.key) &&
+                            "border-(--muted-600) bg-(--muted-500)/10 text-(--muted-500)",
+                          uploaded.includes(data.key) &&
+                            "border-green-500 bg-green-500/10 text-green-300",
+                          erroredOut.includes(data.key) &&
+                            "border-red-500 bg-red-500/10 text-red-300",
+                        )}
+                        onClick={() => {
+                          setDeselected((q) => {
+                            if (q.includes(data.key))
+                              return q.filter((z) => z !== data.key);
+                            return [...q, data.key];
+                          });
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setDeselected((q) => {
+                            const toToggle = gameData.data
+                              .filter((_, qi) => qi <= i)
+                              .map(({ key }) => key);
+                            if (q.includes(data.key)) {
+                              return q.filter((z) => !toToggle.includes(z));
+                            } else {
+                              return [...q, ...toToggle];
+                            }
+                          });
+                        }}
+                        disabled={isUploading}
+                      >
+                        <div className="block pl-2 text-left text-sm">
+                          {data.title}
+                          <br />
+                          {data.id} {data.console} / {data.region}
                         </div>
-                      )}
-                      {uploading.includes(data.key) && (
-                        <div className="flex">
-                          Uploading{" "}
-                          <Spinner
-                            className="h-6 w-6"
-                            key={data.key + "_spinner"}
-                          />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                        {inQueue.includes(data.key) && (
+                          <div className="flex gap-4">
+                            Queued{" "}
+                            <Spinner
+                              className="h-6 w-6"
+                              key={data.key + "_spinner"}
+                            />
+                          </div>
+                        )}
+                        {uploading.includes(data.key) && (
+                          <div className="flex">
+                            Uploading{" "}
+                            <Spinner
+                              className="h-6 w-6"
+                              key={data.key + "_spinner"}
+                            />
+                          </div>
+                        )}
+                      </button>
+                    ))}
                 </>
               )}
               {isUploading && (
-                <div className="relative mx-5 overflow-hidden rounded-full border-1 border-(--regular-border) px-2">
+                <div className="relative mx-5 min-w-64 overflow-hidden rounded-full border-1 border-(--regular-border) px-2">
                   <div
                     className="rouned-full absolute top-0 left-0 h-full bg-green-500/50"
                     style={{
@@ -269,7 +313,10 @@ export const ImportJSONDialog = ({
                     }}
                   ></div>
                   Uploading {uploaded.length}/{gameData.data.length} (
-                  {(uploaded.length / gameData.data.length) * 100}%)
+                  {Math.round(
+                    (uploaded.length / gameData.data.length) * 10000,
+                  ) / 100}
+                  %)
                 </div>
               )}
             </div>
@@ -278,11 +325,19 @@ export const ImportJSONDialog = ({
                 className={cn(
                   "w-full rounded-xl bg-(--button-submit-bg)/50 text-(--button-submit-text)",
                   "cursor-pointer border-1 border-(--button-submit-bg) hover:brightness-(--bg-hover-brightness)",
+                  "disabled:bg-(--button-muted-bg)/50 disabled:text-(--button-muted-text)",
+                  "disabled:cursor-not-allowed disabled:border-(--button-muted-bg) disabled:hover:brightness-100",
                 )}
                 onClick={() => {
                   void startUpload();
                 }}
+                disabled={gameData.warns.length > 0}
                 type="button"
+                title={
+                  gameData.warns.length > 0
+                    ? "Resolve all issues before importing!"
+                    : ""
+                }
               >
                 {isUploading ? "Uploading... " : "Upload to DB"}
               </button>

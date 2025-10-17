@@ -35,9 +35,11 @@ export const PopoverDialog = ({
   standalone,
   Actuator,
   ref,
+  hideBehavior = "auto",
 }: PropsWithChildren<{
   standalone?: boolean | string;
   className?: ClassValue;
+  hideBehavior?: "auto" | "manual";
   Actuator: ReactElement<{
     onClick?: MouseEventHandler;
   }>;
@@ -97,7 +99,7 @@ export const PopoverDialog = ({
     <>
       {dialogTransform(
         <dialog
-          popover="auto"
+          popover={hideBehavior}
           ref={dialogRef}
           className={cn(DEFAULT_POPUP_DIALOG_STYLES, className)}
         >

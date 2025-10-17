@@ -67,4 +67,12 @@ export const gameRouter = createTRPCRouter({
       });
       return nG;
     }),
+  importBatch: adminProcedure
+    .input(z.array(GameData))
+    .mutation(async ({ ctx, input }) => {
+      const insert = await ctx.db.game.createManyAndReturn({
+        data: input,
+      });
+      return insert;
+    }),
 });

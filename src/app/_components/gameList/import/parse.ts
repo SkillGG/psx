@@ -14,18 +14,31 @@ export type GameData = {
   warns: {
     data: Partial<Record<keyof Game, string | undefined>> & { key: string };
     message: string;
+    potentialFixes?: { label: string; resolve: (data: GameData) => GameData }[];
   }[];
 };
+
+const fixIgnore = (
+  key: string,
+): NonNullable<GameData["warns"][number]["potentialFixes"]>[number] => ({
+  label: "Ignore",
+  resolve: (d: GameData) => {
+    return { ...d, warns: d.warns.filter((q) => q.data.key !== key) };
+  },
+});
 
 const transformFile = (data: GameList, defConsole: Console) => {
   const ret: GameData = { data: [], warns: [] };
   let i = 1;
   for (const q of data) {
+    const key = `importgame_${i++}`;
     const title = "title" in q ? q.title : q.name;
-    if (!title || !q.id || !regionMap[q.region]) {
+    const region = regionMap[q.region];
+    const console = q.console ?? defConsole;
+    if (!title || !q.id || !region) {
       ret.warns.push({
         data: {
-          key: `importgame_warn_${i++}`,
+          key,
           id: q.id,
           console: defConsole,
           region: q.region,
@@ -36,15 +49,100 @@ const transformFile = (data: GameList, defConsole: Console) => {
           : !q.id
             ? "Record with no ID"
             : "Invalid Region",
+        potentialFixes: [fixIgnore(key)],
+      });
+      continue;
+    }
+    const sIDRx = /^([^-]*)\-([^-]*)$/gi;
+    if (!sIDRx.exec(q.id)) {
+      ret.warns.push({
+        data: {
+          key,
+          id: q.id,
+          title,
+          console,
+          region,
+        },
+        message: "Multiple IDs found!",
+        potentialFixes: [
+          fixIgnore(key),
+          {
+            label: "Fix ID",
+            resolve: (d) => {
+              const newID = prompt(`Pick a new ID\n${q.id}`, q.id);
+              if (newID && sIDRx.exec(newID)) {
+                // setNewID
+
+                if (!ret.data.find((q) => q.id === newID)) {
+                  // check if ID exists
+                  alert("Successfully fixed ID");
+                  return {
+                    ...fixIgnore(key).resolve(d),
+                    data: [
+                      ...d.data,
+                      {
+                        console,
+                        id: newID,
+                        key,
+                        region,
+                        title,
+                      },
+                    ],
+                  };
+                } else {
+                  alert("Game with this ID already exists!");
+                  return d;
+                }
+              } else return d;
+            },
+          },
+        ],
+      });
+      continue;
+    }
+    if (
+      [...ret.data, ...ret.warns.map((q) => q.data)].find((d) => d.id === q.id)
+    ) {
+      ret.warns.push({
+        data: {
+          title,
+          id: q.id,
+          region: q.region,
+          console: q.console,
+          key,
+        },
+        message: `Game with this ID already exists!`,
+        potentialFixes: [
+          fixIgnore(key),
+          {
+            label: "Swap",
+            resolve: (d: GameData) => {
+              return {
+                warns: d.warns.filter((q) => q.data.key !== key),
+                data: d.data.map((inD) =>
+                  inD.id === q.id
+                    ? {
+                        title,
+                        id: q.id,
+                        region,
+                        console,
+                        key: inD.key,
+                      }
+                    : inD,
+                ),
+              };
+            },
+          },
+        ],
       });
       continue;
     }
     ret.data.push({
-      key: `importgame_valid_${i++}`,
+      key,
       id: q.id,
       title,
-      console: q.console ?? defConsole,
-      region: regionMap[q.region],
+      console,
+      region,
     });
   }
   return ret;

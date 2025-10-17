@@ -51,63 +51,84 @@ export const GameList = ({
 
   return (
     <div>
-      <div className={"grid grid-cols-[2fr_1fr_1fr_5fr] text-(--label-text)"}>
-        <FiltersDialog
-          classNames={{
-            btn: cn(
-              "justify-self-start border-1 rounded-lg px-2 ml-4",
-              "hover:backdrop-brightness-(--bg-hover-brightness)",
-              "focus:backdrop-brightness-(--bg-hover-brightness)",
-              "hover:cursor-pointer",
-            ),
-          }}
-          filters={filters}
-          setFilters={setFilters}
-          userSort={
-            !!userID
-              ? {
-                  sort: !forceAll,
-                  toggle: () => setForceAll((p) => !p),
-                }
-              : undefined
-          }
-        />
-        <GameRow
-          raw={{
-            console: "Console",
-            id: "ID",
-            region: "Region",
-            title: "Title",
-          }}
-          classNames={{ all: "text-center font-bold text-2xl" }}
-        />
-        {games.map((q) => (
-          <GameRow
-            game={q}
-            key={"game_" + q.id}
+      <div>
+        <div className="flex gap-4">
+          <FiltersDialog
             classNames={{
-              all: cn(
-                "text-center",
-                q.region === "PAL" && "text-green-500",
-                q.region === "NTSC" && "text-orange-500",
-                q.region === "NTSCJ" && "text-pink-500",
+              btn: cn(
+                "justify-self-start border-1 rounded-xl px-2 ml-4",
+                "hover:backdrop-brightness-(--bg-hover-brightness)",
+                "focus:backdrop-brightness-(--bg-hover-brightness)",
+                "hover:cursor-pointer",
               ),
-              title: "text-(--regular-text)",
+            }}
+            filters={filters}
+            setFilters={setFilters}
+            userSort={
+              !!userID
+                ? {
+                    sort: !forceAll,
+                    toggle: () => setForceAll((p) => !p),
+                  }
+                : undefined
+            }
+          />
+          {editable && (
+            <div>
+              <PopoverDialog
+                ref={popoverRef}
+                Actuator={
+                  <button
+                    className={cn(
+                      "cursor-pointer rounded-xl border-1 px-2 py-1",
+                      "hover:backdrop-brightness-(--bg-hover-brightness)",
+                    )}
+                  >
+                    Add a new game
+                  </button>
+                }
+              >
+                <NewGameCreationForm
+                  closeDialog={() => popoverRef.current?.hide()}
+                />
+              </PopoverDialog>
+            </div>
+          )}
+        </div>
+        <div className="grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto text-(--label-text)">
+          <GameRow
+            raw={{
+              console: "Console",
+              id: "ID",
+              region: "Region",
+              title: "Title",
+            }}
+            classNames={{
+              all: "text-center font-bold text-2xl self-start",
             }}
           />
-        ))}
-        {editable && (
-          <div>
-            <PopoverDialog
-              ref={popoverRef}
-              Actuator={<button>Add a new game</button>}
-            >
-              <NewGameCreationForm
-                closeDialog={() => popoverRef.current?.hide()}
-              />
-            </PopoverDialog>
-          </div>
-        )}
+        </div>
+        <div className="grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto text-(--label-text)">
+          {games.map((q) => (
+            <GameRow
+              game={q}
+              key={"game_" + q.id}
+              classNames={{
+                all: cn(
+                  "text-center wrap-anywhere",
+                  "nth-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
+                  "nth-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
+                  "nth-[8n+3]:backdrop-brightness-(--bg-hover-brightness)",
+                  "nth-[8n+4]:backdrop-brightness-(--bg-hover-brightness)",
+                  q.region === "PAL" && "text-green-500",
+                  q.region === "NTSC" && "text-orange-500",
+                  q.region === "NTSCJ" && "text-pink-500",
+                ),
+                title: "text-(--regular-text)",
+              }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
