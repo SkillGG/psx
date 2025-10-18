@@ -6,6 +6,7 @@ import DarkModeSwitch, { AccentSwitch } from "./themeSwitches";
 import { LoggedUI } from "./logged";
 import type { ClassValue } from "clsx";
 import { cn } from "~/utils/utils";
+import { SearchBar } from "./search";
 
 export const UserNav = ({
   back,
@@ -15,30 +16,29 @@ export const UserNav = ({
   back?: string;
 }) => {
   const user = useUser();
-
   return (
     <nav
-      className={cn("mr-2 flex items-center justify-end gap-2 pt-2", className)}
+      className={cn(
+        "top-0 right-0 flex not-lg:justify-end lg:absolute",
+        className,
+      )}
     >
       {user.logged ? (
         <LoggedUI user={user} />
       ) : (
-        <>
-          <AccentSwitch />
-          <DarkModeSwitch />
+        <div className="relative flex items-center gap-2 text-(--label-text)">
+          <div>
+            <SearchBar />
+          </div>
           <Link
             href={`/login${back ? `?back=${back}` : ""}`}
-            className="text-(--accent-300) hover:cursor-pointer hover:text-(--label-text)"
+            className="text-(--regular-text) hover:cursor-pointer hover:text-(--label-text)"
           >
             Login
           </Link>
-          <Link
-            href={`/register${back ? `?back=${back}` : ""}`}
-            className="text-(--accent-300) hover:cursor-pointer hover:text-(--label-text)"
-          >
-            Register
-          </Link>
-        </>
+          <AccentSwitch />
+          <DarkModeSwitch />
+        </div>
       )}
     </nav>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-// import { useState } from "react";
 import { useState } from "react";
 import { type User } from "../hooks/user";
 import { cn } from "~/utils/utils";
@@ -8,19 +7,24 @@ import DarkModeSwitch, { AccentSwitch } from "./themeSwitches";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { Spinner } from "./spinner";
-import { usePathname } from "next/navigation";
+import { useParams } from "next/navigation";
+import { SearchBar } from "./search";
 
 export const LoggedUI = ({ user }: { user: User }) => {
   const logout = api.user.logout.useMutation();
   const utils = api.useUtils();
 
-  const [anchor, setAnchor] = useState<[number, number]>([0, 0]);
+  const params = useParams();
+  const curPageID = "userid" in params ? params.userid : null;
 
-  const path = usePathname();
+  const [anchor, setAnchor] = useState<[number, number]>([0, 0]);
 
   return (
     <>
       <div className="relative flex items-center gap-2 text-(--label-text)">
+        <div>
+          <SearchBar />
+        </div>
         <button
           className="cursor-pointer"
           onClick={(e) => {
@@ -50,7 +54,7 @@ export const LoggedUI = ({ user }: { user: User }) => {
           }}
           popover="auto"
         >
-          {!path.includes("profile") && !path.includes(user.id) && (
+          {curPageID !== user.id && (
             <li>
               <Link
                 href={"/profile/" + user.id}

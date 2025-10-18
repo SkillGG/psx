@@ -16,8 +16,19 @@ export const Profile = ({
 
   return (
     <div className="text-(--label-text)">
-      {curUser ? "My library" : `Library of ${user.nick}`}
       <GameList
+        listDescriptor={
+          <div className="mx-auto text-xl text-(--regular-text)">
+            {curUser ? (
+              "My library"
+            ) : (
+              <>
+                Library of{" "}
+                <span className="text-(--complement-500)">{user.nick}</span>
+              </>
+            )}
+          </div>
+        }
         userID={user.id}
         toggleable={curUser}
         editable={curUser && isAdmin.data}

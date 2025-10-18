@@ -165,4 +165,32 @@ export const userRouter = createTRPCRouter({
       if (userData) return userData;
       return null;
     }),
+  searchUser: publicProcedure
+    .input(z.string())
+    .query(async ({ ctx, input }) => {
+      const foundUsers = await ctx.db.user.findMany({
+        select: {
+          id: true,
+          nick: true,
+        },
+        where: {
+          OR: [
+            {
+              id: input,
+            },
+            {
+              nick: {
+                contains: input,
+              },
+            },
+            {
+              email: {
+                startsWith: input,
+              },
+            },
+          ],
+        },
+      });
+      return foundUsers;
+    }),
 });

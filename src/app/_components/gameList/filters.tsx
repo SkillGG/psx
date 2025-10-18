@@ -236,7 +236,7 @@ export const FiltersDialog = ({
   filters: GameListFilters;
   setFilters: Dispatch<SetStateAction<GameListFilters>>;
   classNames?: {
-    btn?: ClassValue;
+    btns?: { save?: ClassValue; reset?: ClassValue; open?: ClassValue };
     dialog?: ClassValue;
   };
   userSort?: { sort: boolean; toggle: () => void };
@@ -251,7 +251,9 @@ export const FiltersDialog = ({
   return (
     <PopoverDialog
       ref={popoverRef}
-      Actuator={<button className={cn(classNames?.btn)}>Filter & Sort</button>}
+      Actuator={
+        <button className={cn(classNames?.btns?.open)}>Filter & Sort</button>
+      }
     >
       <form
         className={cn("flex flex-col gap-2")}

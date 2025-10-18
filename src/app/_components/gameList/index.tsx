@@ -1,7 +1,7 @@
 "use client";
 import { api } from "~/trpc/react";
 import { Spinner } from "../spinner";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import { NewGameCreationForm } from "./create";
 import { GameRow } from "./row";
 import { FiltersDialog, type GameListFilters } from "./filters";
@@ -11,10 +11,12 @@ import { PopoverDialog, type PopoverRef } from "../popoverDialog";
 export const GameList = ({
   userID,
   editable,
+  listDescriptor,
 }: {
   userID?: string;
   editable?: boolean;
   toggleable?: boolean;
+  listDescriptor?: ReactNode;
 }) => {
   const [forceAll, setForceAll] = useState(false);
 
@@ -42,7 +44,7 @@ export const GameList = ({
   const popoverRef = useRef<PopoverRef>(null);
   if (isFetching || !games)
     return (
-      <div className="m-auto flex h-full w-full items-center justify-center">
+      <div className="m-auto flex h-screen w-full items-center justify-center">
         <Spinner />
       </div>
     );
@@ -50,17 +52,19 @@ export const GameList = ({
   console.log("Searching with filters", filters);
 
   return (
-    <div>
+    <div className="pt-2 text-(--label-text)">
       <div>
-        <div className="flex gap-4">
+        <div className="ml-4 flex gap-4">
           <FiltersDialog
             classNames={{
-              btn: cn(
-                "justify-self-start border-1 rounded-xl px-2 ml-4",
-                "hover:backdrop-brightness-(--bg-hover-brightness)",
-                "focus:backdrop-brightness-(--bg-hover-brightness)",
-                "hover:cursor-pointer",
-              ),
+              btns: {
+                open: cn(
+                  "justify-self-start border-1 rounded-xl px-2",
+                  "hover:backdrop-brightness-(--bg-hover-brightness)",
+                  "focus:backdrop-brightness-(--bg-hover-brightness)",
+                  "hover:cursor-pointer",
+                ),
+              },
             }}
             filters={filters}
             setFilters={setFilters}
@@ -80,8 +84,10 @@ export const GameList = ({
                 Actuator={
                   <button
                     className={cn(
-                      "cursor-pointer rounded-xl border-1 px-2 py-1",
+                      "justify-self-start rounded-xl border-1 px-2",
                       "hover:backdrop-brightness-(--bg-hover-brightness)",
+                      "focus:backdrop-brightness-(--bg-hover-brightness)",
+                      "hover:cursor-pointer",
                     )}
                   >
                     Add a new game
@@ -94,8 +100,9 @@ export const GameList = ({
               </PopoverDialog>
             </div>
           )}
+          {listDescriptor}
         </div>
-        <div className="grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto text-(--label-text)">
+        <div className="mx-2 mt-2 grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto rounded-xl border-1 text-(--label-text)">
           <GameRow
             raw={{
               console: "Console",

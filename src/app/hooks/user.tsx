@@ -21,12 +21,14 @@ type UserData =
 
 const UserContext = createContext<UserData | null>(null);
 
+/** Returns {logged: boolean} with user data if it's true */
 export const useUser = () => {
   const ctx = useContext(UserContext);
   if (!ctx) throw new Error("useUser must be used within UserProvider");
   return ctx;
 };
 
+/** If not logged - returns null */
 export const useLoggedUser = () => {
   const user = useUser();
   if (!user.logged) return null;
