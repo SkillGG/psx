@@ -27,73 +27,107 @@ const fixIgnore = (
   },
 });
 
+const isSafeID = (id: string) => {
+  return id.split("-").length === 2 && !!/[a-z]/gi.exec(id.charAt(0));
+};
+
 const transformFile = (data: GameList, defConsole: Console) => {
   const ret: GameData = { data: [], warns: [] };
   let i = 1;
-  for (const q of data) {
-    const key = `importgame_${i++}`;
-    const title = "title" in q ? q.title : q.name;
-    const region = regionMap[q.region];
-    const console = q.console ?? defConsole;
-    if (!title || !q.id || !region) {
+  for (const { id: cID, region: cR, console: cC, ...q } of data) {
+    const cur: Game & { key: string } = {
+      console: cC ?? defConsole,
+      id: cID.trim(),
+      key: `importgame_${i++}`,
+      title: "title" in q ? q.title.trim() : q.name.trim(),
+      region: regionMap[cR],
+    };
+
+    if (!cur.title || !cur.id || !cur.region) {
       ret.warns.push({
-        data: {
-          key,
-          id: q.id,
-          console: defConsole,
-          region: q.region,
-          title: title,
-        },
-        message: !title
+        data: cur,
+        message: !cur.title
           ? "Record with no title"
-          : !q.id
+          : !cur.id
             ? "Record with no ID"
             : "Invalid Region",
-        potentialFixes: [fixIgnore(key)],
+        potentialFixes: [fixIgnore(cur.key)],
       });
       continue;
     }
-    const sIDRx = /^([^-]*)\-([^-]*)$/gi;
-    if (!sIDRx.exec(q.id)) {
+    if (!isSafeID(cur.id)) {
       ret.warns.push({
-        data: {
-          key,
-          id: q.id,
-          title,
-          console,
-          region,
-        },
+        data: cur,
         message: "Multiple IDs found!",
         potentialFixes: [
-          fixIgnore(key),
+          fixIgnore(cur.key),
           {
-            label: "Fix ID",
+            label: "New ID", // The games are indentical, just this version should have different ID bc its different lang/edition
             resolve: (d) => {
-              const newID = prompt(`Pick a new ID\n${q.id}`, q.id);
-              if (newID && sIDRx.exec(newID)) {
-                // setNewID
+              const newID = prompt(`Pick a new ID\n${cur.id}`, cur.id);
+              if (!newID || !isSafeID(newID)) return d;
+              if (!ret.data.find((q) => q.id === newID)) {
+                // check if ID exists
+                alert("Successfully fixed ID");
+                return {
+                  ...fixIgnore(cur.key).resolve(d), // remove the warn
+                  data: [
+                    // add with newID and sort the data
+                    ...d.data,
+                    {
+                      ...cur,
+                      id: newID,
+                    },
+                  ].toSorted(({ key: k1 }, { key: k2 }) =>
+                    k1.localeCompare(k2),
+                  ),
+                };
+              } else {
+                alert("Game with this ID already exists!");
+                return d;
+              }
+            },
+          },
+          {
+            label: "Split IDs",
+            resolve: (d) => {
+              let n = Number(prompt(`How many IDs?\n${cur.id}`));
+              if (isNaN(n) || !isFinite(n) || n <= 0) return d;
+              let gN = 1;
+              const puts: GameData["data"][number][] = [];
+              while (n > 0) {
+                const header = `======GAME ${gN}======\n`;
+                const nID = prompt(`${header}ID\n(${cur.id})`, cur.id);
+                if (!nID || !isSafeID(nID)) return d;
+                const nTitle = prompt(
+                  `${header}Title:\n${cur.title}`,
+                  cur.title,
+                );
+                if (!nTitle) return d;
+                const nRegion = prompt(
+                  `${header}Region:\n${cur.region}`,
+                  cur.region,
+                )?.toLowerCase() as keyof typeof regionMap | undefined;
+                if (!nRegion || !regionMap[nRegion]) return d;
 
-                if (!ret.data.find((q) => q.id === newID)) {
-                  // check if ID exists
-                  alert("Successfully fixed ID");
-                  return {
-                    ...fixIgnore(key).resolve(d),
-                    data: [
-                      ...d.data,
-                      {
-                        console,
-                        id: newID,
-                        key,
-                        region,
-                        title,
-                      },
-                    ],
-                  };
-                } else {
-                  alert("Game with this ID already exists!");
-                  return d;
-                }
-              } else return d;
+                // puts it in the file
+                puts.push({
+                  ...cur,
+                  title: nTitle,
+                  id: nID,
+                  key: `${cur.key}_${gN}`,
+                  region: regionMap[nRegion],
+                });
+                n--;
+                gN++;
+              }
+
+              return {
+                ...d,
+                data: d.data
+                  .concat(puts)
+                  .toSorted(({ key: k1 }, { key: k2 }) => k1.localeCompare(k2)),
+              };
             },
           },
         ],
@@ -101,31 +135,24 @@ const transformFile = (data: GameList, defConsole: Console) => {
       continue;
     }
     if (
-      [...ret.data, ...ret.warns.map((q) => q.data)].find((d) => d.id === q.id)
+      [...ret.data, ...ret.warns.map((q) => q.data)].find(
+        (d) => d.id === cur.id,
+      )
     ) {
       ret.warns.push({
-        data: {
-          title,
-          id: q.id,
-          region: q.region,
-          console: q.console,
-          key,
-        },
+        data: cur,
         message: `Game with this ID already exists!`,
         potentialFixes: [
-          fixIgnore(key),
+          fixIgnore(cur.key),
           {
             label: "Swap",
             resolve: (d: GameData) => {
               return {
-                warns: d.warns.filter((q) => q.data.key !== key),
+                warns: d.warns.filter((q) => q.data.key !== cur.key),
                 data: d.data.map((inD) =>
-                  inD.id === q.id
+                  inD.id === cur.id
                     ? {
-                        title,
-                        id: q.id,
-                        region,
-                        console,
+                        ...cur,
                         key: inD.key,
                       }
                     : inD,
@@ -137,14 +164,14 @@ const transformFile = (data: GameList, defConsole: Console) => {
       });
       continue;
     }
-    ret.data.push({
-      key,
-      id: q.id,
-      title,
-      console,
-      region,
-    });
+    ret.data.push(cur);
   }
+
+  ret.data.sort(({ key: k1 }, { key: k2 }) => k1.localeCompare(k2));
+  ret.warns.sort(({ data: { key: k1 } }, { data: { key: k2 } }) =>
+    k1.localeCompare(k2),
+  );
+
   return ret;
 };
 

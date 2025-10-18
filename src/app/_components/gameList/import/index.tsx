@@ -200,7 +200,7 @@ export const ImportJSONDialog = ({
                       {warn.message}
                       <br />
                       <div className="relative block pl-2 text-left text-sm">
-                        ID:{" "}
+                        ID:
                         {(warn.data.id ?? "undefined") || (
                           <span className="text-(--error-text)">*empty*</span>
                         )}
@@ -237,71 +237,69 @@ export const ImportJSONDialog = ({
                       CORRECT DATA ({gameData.data.length}):
                     </div>
                   )}
-                  {gameData.data
-                    .toSorted((p, n) => p.id.localeCompare(n.id))
-                    .map((data, i) => (
-                      <button
-                        type={"button"}
-                        key={data.key}
-                        id={data.key}
-                        className={cn(
-                          "flex-1 basis-[fit-content] rounded-xl border-1 border-(--info-600) bg-(--info-500)/10",
-                          "block cursor-pointer px-2 py-1 text-center text-(--info-500)",
-                          "disabled:cursor-default",
-                          deselected.includes(data.key) &&
-                            "border-(--muted-600) bg-(--muted-500)/10 text-(--muted-500)",
-                          uploaded.includes(data.key) &&
-                            "border-green-500 bg-green-500/10 text-green-300",
-                          erroredOut.includes(data.key) &&
-                            "border-red-500 bg-red-500/10 text-red-300",
-                        )}
-                        onClick={() => {
-                          setDeselected((q) => {
-                            if (q.includes(data.key))
-                              return q.filter((z) => z !== data.key);
-                            return [...q, data.key];
-                          });
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setDeselected((q) => {
-                            const toToggle = gameData.data
-                              .filter((_, qi) => qi <= i)
-                              .map(({ key }) => key);
-                            if (q.includes(data.key)) {
-                              return q.filter((z) => !toToggle.includes(z));
-                            } else {
-                              return [...q, ...toToggle];
-                            }
-                          });
-                        }}
-                        disabled={isUploading}
-                      >
-                        <div className="block pl-2 text-left text-sm">
-                          {data.title}
-                          <br />
-                          {data.id} {data.console} / {data.region}
+                  {gameData.data.map((data, i) => (
+                    <button
+                      type={"button"}
+                      key={data.key}
+                      id={data.key}
+                      className={cn(
+                        "flex-1 basis-[fit-content] rounded-xl border-1 border-(--info-600) bg-(--info-500)/10",
+                        "block cursor-pointer px-2 py-1 text-center text-(--info-500)",
+                        "disabled:cursor-default",
+                        deselected.includes(data.key) &&
+                          "border-(--muted-600) bg-(--muted-500)/10 text-(--muted-500)",
+                        uploaded.includes(data.key) &&
+                          "border-green-500 bg-green-500/10 text-green-300",
+                        erroredOut.includes(data.key) &&
+                          "border-red-500 bg-red-500/10 text-red-300",
+                      )}
+                      onClick={() => {
+                        setDeselected((q) => {
+                          if (q.includes(data.key))
+                            return q.filter((z) => z !== data.key);
+                          return [...q, data.key];
+                        });
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setDeselected((q) => {
+                          const toToggle = gameData.data
+                            .filter((_, qi) => qi <= i)
+                            .map(({ key }) => key);
+                          if (q.includes(data.key)) {
+                            return q.filter((z) => !toToggle.includes(z));
+                          } else {
+                            return [...q, ...toToggle];
+                          }
+                        });
+                      }}
+                      disabled={isUploading}
+                    >
+                      <div className="block pl-2 text-left text-sm">
+                        {data.title}
+                        <br />
+                        {data.id} {data.console} / {data.region}
+                      </div>
+                      {inQueue.includes(data.key) && (
+                        <div className="flex gap-4">
+                          Queued{" "}
+                          <Spinner
+                            className="h-6 w-6"
+                            key={data.key + "_spinner"}
+                          />
                         </div>
-                        {inQueue.includes(data.key) && (
-                          <div className="flex gap-4">
-                            Queued{" "}
-                            <Spinner
-                              className="h-6 w-6"
-                              key={data.key + "_spinner"}
-                            />
-                          </div>
-                        )}
-                        {uploading.includes(data.key) && (
-                          <div className="flex">
-                            Uploading{" "}
-                            <Spinner
-                              className="h-6 w-6"
-                              key={data.key + "_spinner"}
-                            />
-                          </div>
-                        )}
-                      </button>
-                    ))}
+                      )}
+                      {uploading.includes(data.key) && (
+                        <div className="flex">
+                          Uploading{" "}
+                          <Spinner
+                            className="h-6 w-6"
+                            key={data.key + "_spinner"}
+                          />
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </>
               )}
               {isUploading && (
