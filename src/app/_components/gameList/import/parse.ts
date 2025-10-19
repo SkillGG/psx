@@ -39,7 +39,7 @@ const transformFile = (data: GameList, defConsole: Console) => {
   for (const { id: cID, region: cR, console: cC, ...q } of data) {
     const cur: Game & { key: string } = {
       console: cC ?? defConsole,
-      parentID: null,
+      parent_id: null,
       id: cID.trim(),
       key: `importgame_${i++}`,
       title: "title" in q ? q.title.trim() : q.name.trim(),

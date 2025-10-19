@@ -1,8 +1,11 @@
 import type { Game } from "@prisma/client";
 import type { ClassValue } from "clsx";
+import type { GameWithSubs } from "~/utils/gameQueries";
 import { cn } from "~/utils/utils";
 
-type Strings = { game: Game } | { raw: Partial<Record<keyof Game, string>> };
+type Strings =
+  | { game: GameWithSubs }
+  | { raw: Partial<Record<keyof Game, string>> };
 
 export const GameRow = ({
   classNames,

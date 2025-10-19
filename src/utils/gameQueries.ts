@@ -3,7 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import chalk from "chalk";
 import { isNotNull } from "./utils";
 
-type GameWithSubs = Pick<Game, "id" | "console" | "region" | "title"> & {
+export type GameWithSubs = Pick<Game, "id" | "console" | "region" | "title"> & {
   subgames: Game[];
 };
 
@@ -18,14 +18,12 @@ const mergeSubgames = (list: Game[]): GameWithSubs[] => {
     })),
   ];
 
-  const subGames = list.filter(
-    (q): q is Game & { parentID: string } => !!q.parentID,
-  );
+  const subGames = list.filter((q): q is Required<Game> => !!q.parent_id);
 
   for (const sGame of subGames) {
     const indexInMain = retList.findIndex((q) => q.id === sGame.id);
     if (indexInMain < 0) continue;
-    const parent = retList.find((q) => q.id === sGame.parentID);
+    const parent = retList.find((q) => q.id === sGame.parent_id);
     if (!parent) continue;
     parent.subgames.push(sGame);
     retList.splice(indexInMain, 1);

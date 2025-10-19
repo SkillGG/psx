@@ -12,7 +12,7 @@ const GameData = z.object({
   title: z.string(),
   console: ConsoleType,
   region: RegionType,
-  parentID: z.string().nullable().optional(),
+  parent_id: z.string().nullable().optional(),
 });
 
 const QueryColumn = z.enum(["id", "title", "console", "region"]);
@@ -64,7 +64,7 @@ export const gameRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const newGame: Game = {
         ...input.game,
-        parentID: input.game.parentID ?? null,
+        parent_id: input.game.parent_id ?? null,
       };
       const nG = await ctx.db.game.create({
         data: newGame,
@@ -76,7 +76,7 @@ export const gameRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const games: Game[] = input.map((q) => ({
         ...q,
-        parentID: q.parentID ?? null,
+        parent_id: q.parent_id ?? null,
       }));
       const insert = await ctx.db.game.createManyAndReturn({
         data: games,

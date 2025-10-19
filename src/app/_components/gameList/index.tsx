@@ -105,7 +105,7 @@ export const GameList = ({
         <div className="mx-2 mt-2 grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto rounded-xl border-1 text-(--label-text)">
           <GameRow
             raw={{
-              parentID: "",
+              parent_id: "",
               console: "Console",
               id: "ID",
               region: "Region",
@@ -118,23 +118,26 @@ export const GameList = ({
         </div>
         <div className="grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto text-(--label-text)">
           {games.map((q) => (
-            <GameRow
-              game={q}
-              key={"game_" + q.id}
-              classNames={{
-                all: cn(
-                  "text-center wrap-anywhere",
-                  "nth-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
-                  "nth-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
-                  "nth-[8n+3]:backdrop-brightness-(--bg-hover-brightness)",
-                  "nth-[8n+4]:backdrop-brightness-(--bg-hover-brightness)",
-                  q.region === "PAL" && "text-green-500",
-                  q.region === "NTSC" && "text-orange-500",
-                  q.region === "NTSCJ" && "text-pink-500",
-                ),
-                title: "text-(--regular-text)",
-              }}
-            />
+            <>
+              <GameRow
+                game={q}
+                key={"game_" + q.id}
+                classNames={{
+                  all: cn(
+                    "text-center wrap-anywhere",
+                    "nth-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
+                    "nth-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
+                    "nth-[8n+3]:backdrop-brightness-(--bg-hover-brightness)",
+                    "nth-[8n+4]:backdrop-brightness-(--bg-hover-brightness)",
+                    q.region === "PAL" && "text-green-500",
+                    q.region === "NTSC" && "text-orange-500",
+                    q.region === "NTSCJ" && "text-pink-500",
+                  ),
+                  title: "text-(--regular-text)",
+                }}
+              />
+              {q.subgames.length > 0 && <></>}
+            </>
           ))}
         </div>
       </div>
