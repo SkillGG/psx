@@ -47,7 +47,7 @@ export const NewGameCreationForm = ({
         <input
           value={id}
           required
-          pattern="[A-Z]{4,}-\d+"
+          pattern="[^-]+-[^-]+"
           placeholder={"Game ID"}
           onChange={(e) => setID(e.currentTarget.value)}
         />

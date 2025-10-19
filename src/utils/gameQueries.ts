@@ -3,13 +3,44 @@ import type { PrismaClient } from "@prisma/client";
 import chalk from "chalk";
 import { isNotNull } from "./utils";
 
+type GameWithSubs = Pick<Game, "id" | "console" | "region" | "title"> & {
+  subgames: Game[];
+};
+
+const mergeSubgames = (list: Game[]): GameWithSubs[] => {
+  const retList = [
+    ...list.map<GameWithSubs>((q) => ({
+      console: q.console,
+      id: q.id,
+      region: q.region,
+      subgames: [],
+      title: q.title,
+    })),
+  ];
+
+  const subGames = list.filter(
+    (q): q is Game & { parentID: string } => !!q.parentID,
+  );
+
+  for (const sGame of subGames) {
+    const indexInMain = retList.findIndex((q) => q.id === sGame.id);
+    if (indexInMain < 0) continue;
+    const parent = retList.find((q) => q.id === sGame.parentID);
+    if (!parent) continue;
+    parent.subgames.push(sGame);
+    retList.splice(indexInMain, 1);
+  }
+
+  return retList;
+};
+
 export const queryGames = async (
   db: PrismaClient,
   userID?: string,
   sort?: GameQuerySort,
   search?: Partial<Record<GameQueryColumn, string>>,
   [skip, take] = [0, 100],
-): Promise<Game[]> => {
+): Promise<GameWithSubs[]> => {
   const searchTyping: GameQuerySearch = {};
 
   if (search) {
@@ -49,7 +80,7 @@ export const queryGames = async (
     ? await db.$queryRawUnsafe<Game[]>(uidQuery, userID, take, skip, ...vars)
     : await db.$queryRawUnsafe<Game[]>(nouidQuery, take, skip, ...vars);
 
-  return games;
+  return mergeSubgames(games);
 };
 
 export type GameQueryColumn = "id" | "title" | "console" | "region";
@@ -132,7 +163,7 @@ const querySearchToSQL = (s: GameQuerySearch) => {
 };
 
 const fullQuery = (sort: string, search: GameQuerySearch) => `Select
-g.id, g.console, g.title, g.region
+g.id, g.console, g.title, g.region, g."parentID"
 from "Game" as g
 left join "Library" as l
   on l."gameId" = g.id
@@ -141,7 +172,7 @@ order by case when (l."userId" = $1) then 1 else 2 end asc${!!sort ? `, ${sort} 
 `;
 
 const noUIDQuery = (sort: string, search: GameQuerySearch) => `Select
-g.id, g.console, g.title, g.region
+g.id, g.console, g.title, g.region, g."parentID"
 from "Game" as g
 ${querySearchToSQL(search)}
 ${!!sort ? `order by ${sort} ` : " "}limit $1 offset $2;

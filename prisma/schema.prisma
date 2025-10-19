@@ -38,6 +38,10 @@ model Game {
     region  Region
 
     Library Library[]
+
+    parent_id String?
+    parent    Game?   @relation("ParentSubgame", references: [id], fields: [parent_id])
+    subgames  Game[]  @relation("ParentSubgame")
 }
 
 model Library {

@@ -12,7 +12,9 @@ const regionMap = {
 export type GameData = {
   data: (Game & { key: string })[];
   warns: {
-    data: Partial<Record<keyof Game, string | undefined>> & { key: string };
+    data: Partial<Record<keyof Game, string | null | undefined>> & {
+      key: string;
+    };
     message: string;
     potentialFixes?: { label: string; resolve: (data: GameData) => GameData }[];
   }[];
@@ -37,6 +39,7 @@ const transformFile = (data: GameList, defConsole: Console) => {
   for (const { id: cID, region: cR, console: cC, ...q } of data) {
     const cur: Game & { key: string } = {
       console: cC ?? defConsole,
+      parentID: null,
       id: cID.trim(),
       key: `importgame_${i++}`,
       title: "title" in q ? q.title.trim() : q.name.trim(),

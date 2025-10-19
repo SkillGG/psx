@@ -105,6 +105,7 @@ export const GameList = ({
         <div className="mx-2 mt-2 grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto rounded-xl border-1 text-(--label-text)">
           <GameRow
             raw={{
+              parentID: "",
               console: "Console",
               id: "ID",
               region: "Region",
