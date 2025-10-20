@@ -35,6 +35,7 @@ const setTokenCookie = (h: Headers, token: string, time?: Date) => {
     "Set-Cookie",
     serializeCookie(USER_COOKIE, token, {
       expires: nextYear(time),
+      path: "/api",
     }),
   );
 };
@@ -107,10 +108,7 @@ export const userRouter = createTRPCRouter({
       });
     }),
   logout: publicProcedure.mutation(({ ctx }) => {
-    ctx.resHeaders.set(
-      "Set-Cookie",
-      serializeCookie(USER_COOKIE, "", { maxAge: 1 }),
-    );
+    setTokenCookie(ctx.resHeaders, "", new Date());
   }),
   login: publicProcedure
     .input(z.object({ login: z.string(), pass: z.string() }))

@@ -2,6 +2,7 @@
 
 import { cn } from "~/utils/utils";
 import { createContext, useContext, useEffect, useState } from "react";
+import { xURL } from "~/utils/urls";
 
 export type LightMode = "light" | "dark";
 
@@ -54,6 +55,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
     const lsAccent = localStorage.getItem("accentName") as AccentName | null;
     if (lsAccent) setAccent(lsAccent);
+
+    // @ts-expect-error overwriting window
+    window.xURL = xURL;
   }, []);
 
   useEffect(() => {

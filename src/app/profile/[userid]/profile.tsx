@@ -1,7 +1,10 @@
 "use client";
+import Link from "next/link";
 import { GameList } from "~/app/_components/gameList";
 import type { User } from "~/app/hooks/user";
 import { api } from "~/trpc/react";
+import { xURL } from "~/utils/urls";
+import { useEffect, useState } from "react";
 
 export const Profile = ({
   user,

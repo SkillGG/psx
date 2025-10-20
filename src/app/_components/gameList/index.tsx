@@ -7,6 +7,7 @@ import { GameRow } from "./row";
 import { FiltersDialog, type GameListFilters } from "./filters";
 import { cn } from "~/utils/utils";
 import { PopoverDialog, type PopoverRef } from "../popoverDialog";
+import Link from "next/link";
 
 export const GameList = ({
   userID,
@@ -78,27 +79,43 @@ export const GameList = ({
             }
           />
           {editable && (
-            <div>
-              <PopoverDialog
-                ref={popoverRef}
-                Actuator={
-                  <button
-                    className={cn(
-                      "justify-self-start rounded-xl border-1 px-2",
-                      "hover:backdrop-brightness-(--bg-hover-brightness)",
-                      "focus:backdrop-brightness-(--bg-hover-brightness)",
-                      "hover:cursor-pointer",
-                    )}
-                  >
-                    Add a new game
-                  </button>
-                }
-              >
-                <NewGameCreationForm
-                  closeDialog={() => popoverRef.current?.hide()}
-                />
-              </PopoverDialog>
-            </div>
+            <>
+              <div>
+                <PopoverDialog
+                  ref={popoverRef}
+                  Actuator={
+                    <button
+                      className={cn(
+                        "justify-self-start rounded-xl border-1 px-2",
+                        "hover:backdrop-brightness-(--bg-hover-brightness)",
+                        "focus:backdrop-brightness-(--bg-hover-brightness)",
+                        "hover:cursor-pointer",
+                      )}
+                    >
+                      Add a new game
+                    </button>
+                  }
+                >
+                  <NewGameCreationForm
+                    closeDialog={() => popoverRef.current?.hide()}
+                  />
+                </PopoverDialog>
+              </div>
+              <div>
+                <Link
+                  target="_blank"
+                  className={cn(
+                    "justify-self-start rounded-xl border-1 px-2",
+                    "hover:backdrop-brightness-(--bg-hover-brightness)",
+                    "focus:backdrop-brightness-(--bg-hover-brightness)",
+                    "hover:cursor-pointer",
+                  )}
+                  href={"/api/export"}
+                >
+                  Export
+                </Link>
+              </div>
+            </>
           )}
           {listDescriptor}
         </div>

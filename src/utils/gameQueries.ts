@@ -161,7 +161,7 @@ const querySearchToSQL = (s: GameQuerySearch) => {
 };
 
 const fullQuery = (sort: string, search: GameQuerySearch) => `Select
-g.id, g.console, g.title, g.region, g."parentID"
+g.id, g.console, g.title, g.region, g.parent_id
 from "Game" as g
 left join "Library" as l
   on l."gameId" = g.id
@@ -170,7 +170,7 @@ order by case when (l."userId" = $1) then 1 else 2 end asc${!!sort ? `, ${sort} 
 `;
 
 const noUIDQuery = (sort: string, search: GameQuerySearch) => `Select
-g.id, g.console, g.title, g.region, g."parentID"
+g.id, g.console, g.title, g.region, g.parent_id
 from "Game" as g
 ${querySearchToSQL(search)}
 ${!!sort ? `order by ${sort} ` : " "}limit $1 offset $2;
