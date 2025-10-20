@@ -21,7 +21,8 @@ const handler = async function GET() {
     });
     if (!user) throw new Error();
     if (user.status !== "ADMIN") throw new Error();
-  } catch (_) {
+  } catch (e) {
+    void e; // avoid unused args linter rule
     return new Response("UNAUTHORIZED", {
       status: 403,
       statusText: "UNAUTHORIZED",

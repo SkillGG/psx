@@ -1,7 +1,8 @@
 import type { Game } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
-import chalk from "chalk";
 import { isNotNull } from "./utils";
+
+// import chalk from "chalk";
 
 export type GameWithSubs = Pick<Game, "id" | "console" | "region" | "title"> & {
   subgames: Game[];
@@ -32,6 +33,34 @@ const mergeSubgames = (list: Game[]): GameWithSubs[] => {
   return retList;
 };
 
+const dedupeDeepGames = (
+  prev: GameWithSubs[],
+  next: GameWithSubs[],
+): Game[] => {
+  const flattenGame = (g: GameWithSubs[]): Game[] => {
+    return g
+      .map((q) =>
+        q.subgames.length > 0
+          ? [{ ...q, parent_id: null, subgames: undefined }, ...q.subgames]
+          : { ...q, parent_id: null, subgames: undefined },
+      )
+      .flat(3);
+  };
+
+  return dedupeGames([...flattenGame(prev), ...flattenGame(next)]);
+};
+
+const dedupeGames = (games: Game[]): Game[] => {
+  const ids = new Set<string>();
+  for (const game of games) {
+    ids.add(game.id);
+  }
+
+  return [...ids].map((id) => games.find((g) => g.id === id)).filter(isNotNull);
+};
+
+export type GameWithOwn = Game & { owns?: 0 | 1 };
+
 export const queryGames = async (
   db: PrismaClient,
   userID?: string,
@@ -53,6 +82,7 @@ export const queryGames = async (
     query: uidQuery,
     nouidQuery,
     varsOrder,
+    subgames,
   } = createGameQuery(sort ?? {}, searchTyping);
 
   const vars: string[] = Object.entries(varsOrder)
@@ -62,23 +92,48 @@ export const queryGames = async (
     .map((q) => search?.[q])
     .filter(isNotNull);
 
-  console.log(
-    "query:",
-    (userID ? uidQuery : nouidQuery).replaceAll("\n", " "),
-    "\n",
-    "vars:\n",
-    chalk.red(
-      ...[userID ? [userID, take] : take, skip, ...vars]
-        .flat(3)
-        .map((q, i) => `$${i + 1}=${chalk.green(q)}\n`),
-    ),
-  );
-
   const games = userID
-    ? await db.$queryRawUnsafe<Game[]>(uidQuery, userID, take, skip, ...vars)
+    ? await db.$queryRawUnsafe<GameWithOwn[]>(
+        uidQuery,
+        userID,
+        take,
+        skip,
+        ...vars,
+      )
     : await db.$queryRawUnsafe<Game[]>(nouidQuery, take, skip, ...vars);
 
-  return mergeSubgames(games);
+  const subGames = userID
+    ? await db.$queryRawUnsafe<GameWithOwn[]>(
+        subgames.uid,
+        games.map((q) => q.id),
+        userID,
+      )
+    : await db.$queryRawUnsafe<Game[]>(
+        subgames.nouid,
+        games.map((q) => q.id),
+      );
+
+  let retGames = mergeSubgames(dedupeGames([...games, ...subGames]));
+  if (retGames.length === 0) return [];
+  console.log("Found", retGames.length, " / ", take);
+  while (retGames.length < take) {
+    const newGames = await queryGames(db, userID, sort, search, [
+      skip + games.length + 1,
+      take - retGames.length,
+    ]);
+    if (newGames.length === 0) {
+      console.log("No new games fetched!");
+      break;
+    }
+    const newRet = mergeSubgames(dedupeDeepGames(retGames, newGames));
+    if (newRet.length === retGames.length) {
+      console.log("Nothing changed in the output!");
+      break;
+    }
+    retGames = newRet;
+    await new Promise((res) => setTimeout(res, 1000));
+  }
+  return retGames;
 };
 
 export type GameQueryColumn = "id" | "title" | "console" | "region";
@@ -111,7 +166,10 @@ const querySortToSQL = (s: GameQuerySort) => {
   return sorts.map((q) => `"g"."${q.col}" ${q.sort}`).join(", ");
 };
 
-const querySearchToSQL = (s: GameQuerySearch) => {
+const querySearchToSQL = (
+  s: GameQuerySearch,
+  custom?: (v: boolean) => string,
+) => {
   const vals = (
     [
       s.id?.on
@@ -157,22 +215,40 @@ const querySearchToSQL = (s: GameQuerySearch) => {
     )
     .join(" OR ");
 
-  return vals ? `where ${vals}` : "";
+  return vals || custom
+    ? `where ${custom ? `${custom(!!vals)}` : ""} ${vals}`
+    : "";
 };
 
-const fullQuery = (sort: string, search: GameQuerySearch) => `Select
-g.id, g.console, g.title, g.region, g.parent_id
-from "Game" as g
+const fullQuery = (
+  sort: string,
+  search: GameQuerySearch,
+) => `Select *, case when (l."userId" = $1) then 1 else 0 end as owns from "Game" as g
 left join "Library" as l
   on l."gameId" = g.id
-${querySearchToSQL(search)}
-order by case when (l."userId" = $1) then 1 else 2 end asc${!!sort ? `, ${sort} ` : " "}limit $2 offset $3;
+${querySearchToSQL(search, (v) => (search.id || search.title ? "" : "parent_id is null" + (v ? " AND " : "")))}
+order by owns asc${!!sort ? `, ${sort} ` : " "} limit $2 offset $3;
 `;
 
-const noUIDQuery = (sort: string, search: GameQuerySearch) => `Select
-g.id, g.console, g.title, g.region, g.parent_id
-from "Game" as g
-${querySearchToSQL(search)}
+const subgamesQueryWithOwns = (
+  sort: string,
+) => `select *, case when (l."userId" = $2) then 1 else 0 end as owns from "Game" as g
+left join "Library" as l
+  on l."gameId" = g.id
+where parent_id = ANY($1)
+order by owns asc${!!sort ? `, ${sort}` : ""};
+`;
+
+const subgamesQuery = (sort: string) => `select * from "Game" as g
+where parent_id in ANY($1)
+${!!sort ? `order by ${sort}` : ""};
+`;
+
+const noUIDQuery = (
+  sort: string,
+  search: GameQuerySearch,
+) => `Select * from "Game" as g
+${querySearchToSQL(search, (v) => (search.id || search.title ? "" : "parent_id is null" + (v ? " AND " : "")))}
 ${!!sort ? `order by ${sort} ` : " "}limit $1 offset $2;
 `;
 
@@ -199,6 +275,20 @@ export const createGameQuery = (
   return {
     query: fullQuery(sortPart, search),
     nouidQuery: noUIDQuery(sortPart, search),
+    subgames: {
+      /** Params:
+       *
+       * $1 - Array of gameIDs
+       */
+      nouid: subgamesQuery(sortPart),
+      /** Params:
+       *
+       * $1 - Array of gameIDs
+       *
+       * $2 - userID
+       */
+      uid: subgamesQueryWithOwns(sortPart),
+    },
     varsOrder: getVarOrder(search),
   };
 };

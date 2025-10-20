@@ -46,6 +46,7 @@ export const gameRouter = createTRPCRouter({
           sort: SortSchema.optional(),
           skip: z.number().int().optional(),
           take: z.number().int().optional(),
+          cursor: z.number().nullish(),
         })
         .partial(),
     )
@@ -74,13 +75,30 @@ export const gameRouter = createTRPCRouter({
   importBatch: adminProcedure
     .input(z.array(GameData))
     .mutation(async ({ ctx, input }) => {
-      const games: Game[] = input.map((q) => ({
-        ...q,
-        parent_id: q.parent_id ?? null,
-      }));
+      const games: Game[] = input.map((q) => {
+        if (q.parent_id) console.log("GAME WITHN PARENT ID", q);
+        return {
+          ...q,
+          parent_id: q.parent_id ?? null,
+        };
+      });
       const insert = await ctx.db.game.createManyAndReturn({
         data: games,
       });
       return insert;
+    }),
+  editData: adminProcedure
+    .input(z.object({ id: z.string(), data: GameData }))
+    .mutation(async ({ ctx, input }) => {
+      const game = await ctx.db.game.update({
+        where: {
+          id: input.id,
+        },
+        data: {
+          ...input.data,
+        },
+      });
+
+      return game;
     }),
 });

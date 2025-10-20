@@ -278,7 +278,9 @@ export const ImportJSONDialog = ({
                       <div className="block pl-2 text-left text-sm">
                         {data.title}
                         <br />
-                        {data.id} {data.console} / {data.region}
+                        {data.id}
+                        {data.parent_id && <>[{data.parent_id}]</>}{" "}
+                        {data.console} / {data.region}
                       </div>
                       {inQueue.includes(data.key) && (
                         <div className="flex gap-4">

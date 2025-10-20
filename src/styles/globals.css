@@ -11,6 +11,10 @@
 
 @custom-variant hover (&:hover);
 
+.r-select {
+  @apply bg-(--dialog-bg)/0;
+}
+
 .root {
   &.light {
     --bg-hover-brightness: 90%;

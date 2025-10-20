@@ -11,6 +11,7 @@ import {
 import type { SearchSchema, SortSchema } from "~/server/api/routers/games";
 import { cn } from "~/utils/utils";
 import { PopoverDialog, type PopoverRef } from "../popoverDialog";
+import { DEFAULT_SORT } from ".";
 
 export type GameListFilters = {
   filter: SearchSchema;
@@ -264,9 +265,8 @@ export const FiltersDialog = ({
               userSort.toggle();
             }
           }
-          console.log("current popoverD ref", popoverRef.current);
           popoverRef.current?.hide();
-          saveFilters(filters);
+          saveFilters({ ...filters, page: 0 });
         }}
       >
         <h3 className="text-center text-xl text-(--regular-text)">Filters</h3>
@@ -377,7 +377,18 @@ export const FiltersDialog = ({
 
               if (!val) delete nSort[col];
               else {
-                nSort = { [col]: { sort: val, priority: 1 } };
+                nSort = {
+                  ...nSort,
+                  [col]: {
+                    sort: val,
+                    priority:
+                      Object.entries(nSort)
+                        .map(([_, v]) => {
+                          return v.priority;
+                        })
+                        .reduce((p, n) => Math.max(p, n), 0) + 1,
+                  },
+                };
               }
 
               return {
@@ -411,7 +422,7 @@ export const FiltersDialog = ({
             )}
             onClick={() => {
               setUSortVal(userSort?.sort ?? false);
-              setFilters({ ...filters, filter: {}, sort: {} });
+              setFilters({ ...filters, filter: {}, sort: DEFAULT_SORT });
             }}
           >
             Reset

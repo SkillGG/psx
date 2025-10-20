@@ -29,7 +29,7 @@ const fixIgnore = (
   },
 });
 
-const isSafeID = (id: string) => {
+export const isSafeID = (id: string) => {
   return id.split("-").length === 2 && !!/[a-z]/gi.exec(id.charAt(0));
 };
 
@@ -39,7 +39,7 @@ const transformFile = (data: GameList, defConsole: Console) => {
   for (const { id: cID, region: cR, console: cC, ...q } of data) {
     const cur: Game & { key: string } = {
       console: cC ?? defConsole,
-      parent_id: null,
+      parent_id: q.parent_id ?? null,
       id: cID.trim(),
       key: `importgame_${i++}`,
       title: "title" in q ? q.title.trim() : q.name.trim(),
@@ -185,6 +185,7 @@ const GameObject = z
       error: (iss) => `Invalid region: '${iss.input as string}'`,
     }),
     console: z.enum(["PSP", "PS1", "PS2"]).optional(),
+    parent_id: z.string().optional(),
   })
   .and(z.object({ title: z.string() }).or(z.object({ name: z.string() })));
 
