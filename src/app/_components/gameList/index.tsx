@@ -103,13 +103,6 @@ export const GameList = ({
 
   const popoverRef = useRef<PopoverRef>(null);
 
-  if (isFetching || isMutating || !games)
-    return (
-      <div className="m-auto flex h-screen w-full items-center justify-center">
-        <Spinner />
-      </div>
-    );
-
   console.log("Game#", games?.length);
   console.log("Searching with filters", filters);
 
@@ -151,7 +144,7 @@ export const GameList = ({
               Prev
             </button>
           )}
-          {games.length >= filters.take && (
+          {games && games.length >= filters.take && (
             <button
               onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}
             >
@@ -217,89 +210,98 @@ export const GameList = ({
             }}
           />
         </div>
-        <div
-          className={cn(
-            "mx-2 grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr]",
-            "overflow-auto rounded-xl rounded-t-none",
-            "border-2 border-t-0 border-(--regular-border) text-(--label-text)",
-          )}
-        >
-          {games.map((game) => (
-            <>
-              <GameRow
-                game={{ ...game, parent_id: null }}
-                gameType={game.subgames.length === 0 ? "single" : "parent"}
-                key={"game_" + game.id}
-                toggle={
-                  game.subgames.length > 0 && (
-                    <button
-                      className="ml-2 cursor-pointer rounded-full"
-                      onClick={() => {
-                        setShowSubgames((p) =>
-                          p.includes(game.id)
-                            ? p.filter((id) => id !== game.id)
-                            : [...p, game.id],
-                        );
-                      }}
-                    >
-                      {showSubgames.includes(game.id) ? (
-                        <CaretUp
-                          classNames={{
-                            svg: "h-5 w-5 hover:-rotate-z-90 rotate-90 transition-transform",
-                          }}
-                        />
-                      ) : (
-                        <CaretDown
-                          classNames={{
-                            svg: "h-5 w-5 hover:rotate-z-90 -rotate-90 transition-transform",
-                          }}
-                        />
-                      )}
-                    </button>
-                  )
-                }
-                onEdit={editable ? onGameRowEdit : undefined}
-                classNames={GAME_ROW_STYLES(game.region)}
-              />
-              {game.subgames.length > 0 && showSubgames.includes(game.id) && (
-                <>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-0 bg-(--complement-900)"></div>
-                  <div className="h-0 bg-(--complement-900)"></div>
-                  <div className="h-0 bg-(--complement-900)"></div>
-                  <div className="h-0 bg-(--complement-900)"></div>
-
-                  {game.subgames.map((subgame) => {
-                    return (
-                      <GameRow
-                        onEdit={editable ? onGameRowEdit : undefined}
-                        game={subgame}
-                        gameType="sub"
-                        key={`subgame_${subgame.id}`}
-                        classNames={GAME_ROW_STYLES(subgame.region)}
-                      />
-                    );
-                  })}
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  <div className="h-2 bg-(--complement-900)"></div>
-                  {game.subgames.length % 2 === 1 && (
-                    <>
-                      <div className="h-0 bg-(--complement-900)"></div>
-                      <div className="h-0 bg-(--complement-900)"></div>
-                      <div className="h-0 bg-(--complement-900)"></div>
-                      <div className="h-0 bg-(--complement-900)"></div>
-                    </>
-                  )}
-                </>
+        {isFetching || isMutating || !games ? (
+          <div className="m-auto flex h-screen w-full items-center justify-center">
+            <Spinner />
+          </div>
+        ) : (
+          <>
+            <div
+              className={cn(
+                "mx-2 grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr]",
+                "overflow-auto rounded-xl rounded-t-none",
+                "border-2 border-t-0 border-(--regular-border) text-(--label-text)",
               )}
-            </>
-          ))}
-        </div>
+            >
+              {games.map((game) => (
+                <>
+                  <GameRow
+                    game={{ ...game, parent_id: null }}
+                    gameType={game.subgames.length === 0 ? "single" : "parent"}
+                    key={"game_" + game.id}
+                    toggle={
+                      game.subgames.length > 0 && (
+                        <button
+                          className="ml-2 cursor-pointer rounded-full"
+                          onClick={() => {
+                            setShowSubgames((p) =>
+                              p.includes(game.id)
+                                ? p.filter((id) => id !== game.id)
+                                : [...p, game.id],
+                            );
+                          }}
+                        >
+                          {showSubgames.includes(game.id) ? (
+                            <CaretUp
+                              classNames={{
+                                svg: "h-5 w-5 hover:-rotate-z-90 rotate-90 transition-transform",
+                              }}
+                            />
+                          ) : (
+                            <CaretDown
+                              classNames={{
+                                svg: "h-5 w-5 hover:rotate-z-90 -rotate-90 transition-transform",
+                              }}
+                            />
+                          )}
+                        </button>
+                      )
+                    }
+                    onEdit={editable ? onGameRowEdit : undefined}
+                    classNames={GAME_ROW_STYLES(game.region)}
+                  />
+                  {game.subgames.length > 0 &&
+                    showSubgames.includes(game.id) && (
+                      <>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-0 bg-(--complement-900)"></div>
+                        <div className="h-0 bg-(--complement-900)"></div>
+                        <div className="h-0 bg-(--complement-900)"></div>
+                        <div className="h-0 bg-(--complement-900)"></div>
+
+                        {game.subgames.map((subgame) => {
+                          return (
+                            <GameRow
+                              onEdit={editable ? onGameRowEdit : undefined}
+                              game={subgame}
+                              gameType="sub"
+                              key={`subgame_${subgame.id}`}
+                              classNames={GAME_ROW_STYLES(subgame.region)}
+                            />
+                          );
+                        })}
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        <div className="h-2 bg-(--complement-900)"></div>
+                        {game.subgames.length % 2 === 1 && (
+                          <>
+                            <div className="h-0 bg-(--complement-900)"></div>
+                            <div className="h-0 bg-(--complement-900)"></div>
+                            <div className="h-0 bg-(--complement-900)"></div>
+                            <div className="h-0 bg-(--complement-900)"></div>
+                          </>
+                        )}
+                      </>
+                    )}
+                </>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

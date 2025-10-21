@@ -46,7 +46,6 @@ export const gameRouter = createTRPCRouter({
           sort: SortSchema.optional(),
           skip: z.number().int().optional(),
           take: z.number().int().optional(),
-          cursor: z.number().nullish(),
         })
         .partial(),
     )

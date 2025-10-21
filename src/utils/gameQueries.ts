@@ -2,141 +2,114 @@ import type { Game } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import { isNotNull } from "./utils";
 
-// import chalk from "chalk";
+import chalk from "chalk";
 
-export type GameWithSubs = Pick<Game, "id" | "console" | "region" | "title"> & {
+export type GameWithOwn = Game & {
+  owns?: 0 | 1;
+};
+
+export type GameWithSubs = Pick<
+  GameWithOwn,
+  "owns" | "id" | "console" | "region" | "title"
+> & {
   subgames: Game[];
 };
 
-const mergeSubgames = (list: Game[]): GameWithSubs[] => {
-  const retList = [
-    ...list.map<GameWithSubs>((q) => ({
-      console: q.console,
-      id: q.id,
-      region: q.region,
-      subgames: [],
-      title: q.title,
-    })),
-  ];
-
-  const subGames = list.filter((q): q is Required<Game> => !!q.parent_id);
-
-  for (const sGame of subGames) {
-    const indexInMain = retList.findIndex((q) => q.id === sGame.id);
-    if (indexInMain < 0) continue;
-    const parent = retList.find((q) => q.id === sGame.parent_id);
-    if (!parent) continue;
-    parent.subgames.push(sGame);
-    retList.splice(indexInMain, 1);
+const mergeSubgames = (list: GameWithOwn[]): GameWithSubs[] => {
+  const parentGamesMap = new Map<string, GameWithSubs>();
+  const subGamesToProcess: (GameWithOwn & { parent_id: string })[] = [];
+  for (const game of list) {
+    if (game.parent_id) {
+      subGamesToProcess.push(game as GameWithOwn & { parent_id: string });
+    } else {
+      if (!parentGamesMap.has(game.id)) {
+        parentGamesMap.set(game.id, {
+          console: game.console,
+          id: game.id,
+          region: game.region,
+          subgames: [],
+          title: game.title,
+          owns: game.owns,
+        });
+      }
+    }
   }
-
-  return retList;
+  for (const sGame of subGamesToProcess) {
+    const parent = parentGamesMap.get(sGame.parent_id);
+    if (parent) parent.subgames.push(sGame);
+    else {
+      // TODO HANDLE THAT
+      console.log(chalk.red("ORPHANED GAME!"), sGame.id);
+    }
+  }
+  return Array.from(parentGamesMap.values());
 };
 
-const dedupeDeepGames = (
-  prev: GameWithSubs[],
-  next: GameWithSubs[],
-): Game[] => {
-  const flattenGame = (g: GameWithSubs[]): Game[] => {
-    return g
-      .map((q) =>
-        q.subgames.length > 0
-          ? [{ ...q, parent_id: null, subgames: undefined }, ...q.subgames]
-          : { ...q, parent_id: null, subgames: undefined },
-      )
-      .flat(3);
-  };
-
-  return dedupeGames([...flattenGame(prev), ...flattenGame(next)]);
-};
-
-const dedupeGames = (games: Game[]): Game[] => {
+const dedupeGames = <T extends { id: string }>(games: T[]): T[] => {
   const ids = new Set<string>();
   for (const game of games) {
     ids.add(game.id);
   }
-
   return [...ids].map((id) => games.find((g) => g.id === id)).filter(isNotNull);
 };
 
-export type GameWithOwn = Game & { owns?: 0 | 1 };
-
-export const queryGames = async (
+const fetchGamesUntil = async (
   db: PrismaClient,
-  userID?: string,
-  sort?: GameQuerySort,
-  search?: Partial<Record<GameQueryColumn, string>>,
-  [skip, take] = [0, 100],
-): Promise<GameWithSubs[]> => {
-  const searchTyping: GameQuerySearch = {};
+  { parent, sub }: { parent: string; sub: string },
+  userID: string | undefined,
+  take: number,
+  skip: number,
+  vars: string[],
+) => {
+  const fullVars = userID
+    ? [userID, take, skip, ...vars]
+    : [take, skip, ...vars];
 
-  if (search) {
-    let i = 0;
-    for (const [type] of Object.entries(search)) {
-      const t = type as GameQueryColumn;
-      searchTyping[t] = { on: true, varNum: (userID ? 4 : 3) + i++ };
-    }
+  const parentGames = await db.$queryRawUnsafe<GameWithOwn[]>(
+    parent,
+    ...fullVars,
+  );
+
+  console.log(`Parent games: ${chalk.yellow(parentGames.length)}`);
+
+  const subGames = await db.$queryRawUnsafe<GameWithOwn[]>(
+    sub,
+    parentGames.map((q) => q.id),
+    userID,
+  );
+
+  console.log(`Subgames games: ${chalk.yellow(subGames.length)}`);
+
+  const subsWithNoParents = subGames.filter(
+    (child) => !parentGames.some((p) => p.id === child.parent_id),
+  );
+
+  if (subsWithNoParents.length > 0) {
+    console.log(`Subs without a parent: ${chalk.red(parentGames.length)}`);
+    const subsParents = await db.$queryRawUnsafe<GameWithOwn[]>(
+      `select *, ${userID ? `case when (l."userId" = $2) then 1 else 0 end` : "0 as owns"}
+          from "Game" as g ${userID ? `left join "Library" as l on l."gameID" = f.id` : ""}
+          where g.id = ANY($1);`,
+      subsWithNoParents.map((q) => q.parent_id).filter(isNotNull),
+      userID,
+    );
+    parentGames.push(...subsParents);
   }
+  const allGames = [...parentGames, ...subGames];
+  console.log(`All games: ${chalk.yellow(allGames.length)}`);
 
-  const {
-    query: uidQuery,
-    nouidQuery,
-    varsOrder,
-    subgames,
-  } = createGameQuery(sort ?? {}, searchTyping);
+  const dedupedGames = dedupeGames(allGames);
+  console.log(`Deduped games: ${chalk.yellow(dedupedGames.length)}`);
 
-  const vars: string[] = Object.entries(varsOrder)
-    .toSorted(([p], [n]) => +p - +n)
-    .map((q) => q[1])
-    .filter(isNotNull)
-    .map((q) => search?.[q])
-    .filter(isNotNull);
-
-  const games = userID
-    ? await db.$queryRawUnsafe<GameWithOwn[]>(
-        uidQuery,
-        userID,
-        take,
-        skip,
-        ...vars,
-      )
-    : await db.$queryRawUnsafe<Game[]>(nouidQuery, take, skip, ...vars);
-
-  const subGames = userID
-    ? await db.$queryRawUnsafe<GameWithOwn[]>(
-        subgames.uid,
-        games.map((q) => q.id),
-        userID,
-      )
-    : await db.$queryRawUnsafe<Game[]>(
-        subgames.nouid,
-        games.map((q) => q.id),
-      );
-
-  let retGames = mergeSubgames(dedupeGames([...games, ...subGames]));
-  if (retGames.length === 0) return [];
-  console.log("Found", retGames.length, " / ", take);
-  while (retGames.length < take) {
-    const newGames = await queryGames(db, userID, sort, search, [
-      skip + games.length + 1,
-      take - retGames.length,
-    ]);
-    if (newGames.length === 0) {
-      console.log("No new games fetched!");
-      break;
-    }
-    const newRet = mergeSubgames(dedupeDeepGames(retGames, newGames));
-    if (newRet.length === retGames.length) {
-      console.log("Nothing changed in the output!");
-      break;
-    }
-    retGames = newRet;
-    await new Promise((res) => setTimeout(res, 1000));
-  }
-  return retGames;
+  return mergeSubgames(dedupedGames);
 };
 
-export type GameQueryColumn = "id" | "title" | "console" | "region";
+export type GameQueryColumn =
+  | "id"
+  | "title"
+  | "console"
+  | "region"
+  | "parent_id";
 
 export type GameQuerySort = Partial<
   Record<GameQueryColumn, { priority: number; sort: "asc" | "desc" }>
@@ -146,7 +119,7 @@ type GameQueryFilter = {
   on: boolean;
   varNum: number;
   castTo?: string;
-  comparisonType?: "LIKE" | "=";
+  comparisonType?: "LIKE" | "=" | "is not null" | "is null";
 };
 
 export type GameQuerySearch = Partial<Record<GameQueryColumn, GameQueryFilter>>;
@@ -166,91 +139,96 @@ const querySortToSQL = (s: GameQuerySort) => {
   return sorts.map((q) => `"g"."${q.col}" ${q.sort}`).join(", ");
 };
 
-const querySearchToSQL = (
-  s: GameQuerySearch,
-  custom?: (v: boolean) => string,
-) => {
-  const vals = (
-    [
-      s.id?.on
-        ? { v: "id", n: s.id.varNum, s: s.id.comparisonType ?? "LIKE" }
-        : "",
-      s.title?.on
-        ? {
-            v: "title",
-            n: s.title.varNum,
-            s: s.title.comparisonType ?? "LIKE",
-          }
-        : "",
-      s.console?.on
-        ? {
-            v: "console",
-            n: s.console.varNum,
-            s: "=",
-            c: s.console.castTo ?? `Console`,
-          }
-        : "",
-      s.region?.on
-        ? {
-            v: "region",
-            s: "=",
-            n: s.region.varNum,
-            c: s.region.castTo ?? `Region`,
-          }
-        : "",
-    ] satisfies (
-      | string
-      | {
-          v: GameQueryColumn;
-          s: GameQueryFilter["comparisonType"];
-          c?: GameQueryFilter["castTo"];
-          n: number;
-        }
-    )[]
-  )
-    .filter((q) => typeof q !== "string")
-    .map(
-      (q) =>
-        `g."${q.v}" ${q.s} ${"c" in q ? `CAST($${q.n} AS "${q.c}")` : `$${q.n}`}`,
-    )
-    .join(" OR ");
+// Helper function to format a single condition part
+function formatCondition(
+  column: GameQueryColumn,
+  compare: GameQueryFilter["comparisonType"],
+  varNum?: number,
+  cast?: GameQueryFilter["castTo"],
+): string {
+  const valuePart = compare?.includes("null")
+    ? "" // For IS NULL/IS NOT NULL, no value needed
+    : cast
+      ? `CAST($${varNum} AS "${cast}")`
+      : `$${varNum}`;
+  return `g."${column}" ${compare} ${valuePart}`.trim(); // .trim() removes extra space if valuePart is empty
+}
 
-  return vals || custom
-    ? `where ${custom ? `${custom(!!vals)}` : ""} ${vals}`
-    : "";
+const buildWhereClause = (s: GameQuerySearch): string => {
+  const conditions: string[] = [];
+  const idOrTitle: string[] = [];
+  if (s.id?.on) {
+    idOrTitle.push(
+      formatCondition("id", s.id.comparisonType ?? "LIKE", s.id.varNum),
+    );
+  }
+  if (s.title?.on) {
+    idOrTitle.push(
+      formatCondition(
+        "title",
+        s.title.comparisonType ?? "LIKE",
+        s.title.varNum,
+      ),
+    );
+  }
+  if (idOrTitle.length > 0) {
+    conditions.push(`(${idOrTitle.join(" OR ")})`);
+  }
+  if (s.console?.on) {
+    conditions.push(
+      formatCondition(
+        "console",
+        s.console.comparisonType ?? "=",
+        s.console.varNum,
+        s.console.castTo ?? "Console",
+      ),
+    );
+  }
+  if (s.region?.on) {
+    conditions.push(
+      formatCondition(
+        "region",
+        s.region.comparisonType ?? "=",
+        s.region.varNum,
+        s.region.castTo ?? "Region",
+      ),
+    );
+  }
+  if (s.parent_id?.on && s.parent_id.comparisonType) {
+    conditions.push(
+      formatCondition(
+        "parent_id",
+        s.parent_id.comparisonType,
+        -1, // -1 bc can only be NULL/NOT NULL
+      ),
+    );
+  }
+  if (conditions.length === 0) return "";
+  return `WHERE ${conditions.join(" AND\n      ")}`;
 };
 
-const fullQuery = (
-  sort: string,
-  search: GameQuerySearch,
-) => `Select *, case when (l."userId" = $1) then 1 else 0 end as owns from "Game" as g
-left join "Library" as l
-  on l."gameId" = g.id
-${querySearchToSQL(search, (v) => (search.id || search.title ? "" : "parent_id is null" + (v ? " AND " : "")))}
-order by owns asc${!!sort ? `, ${sort} ` : " "} limit $2 offset $3;
-`;
+export const getOrderedSearchValues = (
+  filters: GameQuerySearch,
+  terms: Partial<Record<GameQueryColumn, string>>,
+): string[] => {
+  const orderedValues: Record<number, string> = {};
 
-const subgamesQueryWithOwns = (
-  sort: string,
-) => `select *, case when (l."userId" = $2) then 1 else 0 end as owns from "Game" as g
-left join "Library" as l
-  on l."gameId" = g.id
-where parent_id = ANY($1)
-order by owns asc${!!sort ? `, ${sort}` : ""};
-`;
+  for (const column of Object.keys(filters) as GameQueryColumn[]) {
+    const filter = filters[column];
+    if (filter?.on && filter.comparisonType !== "is null") {
+      // Don't include value for IS NULL
+      const value = terms[column];
+      if (value !== undefined) {
+        orderedValues[filter.varNum] = value;
+      }
+    }
+  }
 
-const subgamesQuery = (sort: string) => `select * from "Game" as g
-where parent_id in ANY($1)
-${!!sort ? `order by ${sort}` : ""};
-`;
-
-const noUIDQuery = (
-  sort: string,
-  search: GameQuerySearch,
-) => `Select * from "Game" as g
-${querySearchToSQL(search, (v) => (search.id || search.title ? "" : "parent_id is null" + (v ? " AND " : "")))}
-${!!sort ? `order by ${sort} ` : " "}limit $1 offset $2;
-`;
+  // Sort by varNum (key) and extract values
+  return Object.entries(orderedValues)
+    .sort(([num1], [num2]) => +num1 - +num2)
+    .map(([, value]) => value);
+};
 
 export const getVarOrder = (search: GameQuerySearch) => {
   const entries = Object.entries(search) as [
@@ -259,36 +237,122 @@ export const getVarOrder = (search: GameQuerySearch) => {
   ][];
   const ret: Record<number, GameQueryColumn | undefined> = {};
   for (const [k, v] of entries) {
-    if (v.on) {
+    if (v.on && v.comparisonType !== "is not null") {
       ret[v.varNum] = k;
     }
   }
   return ret;
 };
 
+export const queryGames = async (
+  db: PrismaClient,
+  userID?: string,
+  sort?: GameQuerySort,
+  searchTerms?: Partial<Record<GameQueryColumn, string>>, // Renamed for clarity
+  [skip, take] = [0, 100],
+): Promise<GameWithSubs[]> => {
+  const searchFilters: GameQuerySearch = {};
+  let nextVarNum = userID ? 4 : 3; // Starting varNum for search parameters
+  if (searchTerms) {
+    for (const [column, value] of Object.entries(searchTerms)) {
+      if (value !== undefined) {
+        const col = column as GameQueryColumn;
+        searchFilters[col] = {
+          on: true,
+          varNum: nextVarNum++,
+          // USE DEFAULT VALUES FOR castTo AND comparisonType
+          // CHANGE IT YOU GIVE USERS THE ABILITY TO CHANGE IT
+        };
+      }
+    }
+  }
+  searchFilters.parent_id = {
+    on: true,
+    varNum: -1,
+    comparisonType: "is null",
+  };
+  const { uidQuery, nouidQuery, subgames } = createGameQuery(
+    sort ?? {},
+    searchFilters,
+  );
+  const vars = getOrderedSearchValues(searchFilters, searchTerms ?? {});
+  return fetchGamesUntil(
+    db,
+    {
+      parent: userID ? uidQuery : nouidQuery,
+      sub: subgames[userID ? "uid" : "nouid"],
+    },
+    userID,
+    take,
+    skip,
+    vars,
+  );
+};
+
 export const createGameQuery = (
   sort: GameQuerySort,
   search: GameQuerySearch = {},
 ) => {
-  const sortPart = querySortToSQL(sort);
+  const sortClause = querySortToSQL(sort);
+
+  const whereClause = buildWhereClause(search);
 
   return {
-    query: fullQuery(sortPart, search),
-    nouidQuery: noUIDQuery(sortPart, search),
+    /**
+     * Full db query
+     * Params:
+     *
+     * $1 - userID
+     *
+     * $2 - limit
+     *
+     * $3 - offset
+     *
+     * $4+ - defined in {@link .varsOrder}
+     */
+    uidQuery: `Select *, case when (l."userId" = $1) then 1 else 0 end as owns from "Game" as g
+left join "Library" as l
+  on l."gameId" = g.id
+${whereClause}
+order by owns desc${!!sortClause ? `, ${sortClause} ` : " "} limit $2 offset $3;`,
+    /**
+     * Full db query without userID ordering
+     * Params:
+     *
+     * $1 - limit
+     *
+     * $2 - offset
+     *
+     * $3+ - defined in {@link .varsOrder}
+     */
+    nouidQuery: `Select *, 0 as owns from "Game" as g
+${whereClause}
+${!!sortClause ? `order by ${sortClause} ` : " "}limit $1 offset $2;`,
     subgames: {
       /** Params:
        *
        * $1 - Array of gameIDs
        */
-      nouid: subgamesQuery(sortPart),
+      nouid: `select *, 0 as owns from "Game" as g
+where parent_id = ANY($1)
+${!!sortClause ? `order by ${sortClause}` : ""};`,
       /** Params:
        *
        * $1 - Array of gameIDs
        *
        * $2 - userID
        */
-      uid: subgamesQueryWithOwns(sortPart),
+      uid: `select *, case when (l."userId" = $2) then 1 else 0 end as owns from "Game" as g
+left join "Library" as l
+  on l."gameId" = g.id
+where parent_id = ANY($1)
+order by owns desc${!!sortClause ? `, ${sortClause}` : ""};`,
     },
+    /**
+     * Order of variables in fullQuery or nouidQuery.
+     *
+     * Use: `varsOrder[#] // returns column name whose search value should be #th variable in the query`
+     */
     varsOrder: getVarOrder(search),
   };
 };
