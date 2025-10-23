@@ -5,10 +5,11 @@ import type { ClassValue } from "clsx";
 import React, { Fragment, useState, type ReactNode } from "react";
 import { cn } from "~/utils/utils";
 import { isSafeID } from "./import/parse";
+import type { GameWithOwn } from "~/utils/gameQueries";
 
 type Strings =
-  | { game: Game; gameType: "single" | "parent" | "sub" }
-  | { raw: Partial<Record<keyof Game, string>> };
+  | { game: GameWithOwn; gameType: "single" | "parent" | "sub" }
+  | { raw: Partial<Record<keyof GameWithOwn, string>> };
 
 type Issue = {
   field: keyof Game | "unknown";
@@ -48,10 +49,14 @@ export const GameRow = ({
   ...props
 }: Strings & {
   toggle?: ReactNode;
-  onEdit?: (prevID: string, game: Game) => void;
+  onEdit?: (prevID: string, game: GameWithOwn) => void;
   classNames?: {
-    view?: Partial<Record<keyof Game, ClassValue>> & { all?: ClassValue };
-    edit?: Partial<Record<keyof Game, ClassValue>> & { all?: ClassValue };
+    view?: Partial<Record<keyof GameWithOwn, ClassValue>> & {
+      all?: ClassValue;
+    };
+    edit?: Partial<Record<keyof GameWithOwn, ClassValue>> & {
+      all?: ClassValue;
+    };
   };
 }) => {
   const strings = "game" in props ? props.game : props.raw;
@@ -60,15 +65,8 @@ export const GameRow = ({
 
   const [mode, setMode] = useState<"view" | "edit">("view");
 
-  const [editValues, setEditValues] = useState(
-    game
-      ? {
-          id: game.id,
-          console: game.console,
-          region: game.region,
-          title: game.title,
-        }
-      : null,
+  const [editValues, setEditValues] = useState<GameWithOwn | null>(
+    game ? { ...game } : null,
   );
 
   if (mode === "view" || !game || !editValues)
@@ -83,7 +81,14 @@ export const GameRow = ({
           data-value={strings.id}
         >
           <div className="mr-auto flex flex-col">{toggle}</div>
-          <div className="flex-1 text-center">{strings.id}</div>
+          <div
+            className={cn(
+              "flex-1 text-center",
+              game?.owns && "font-extrabold underline",
+            )}
+          >
+            {strings.id}
+          </div>
         </div>
         <div
           className={cn(
@@ -106,7 +111,11 @@ export const GameRow = ({
           {strings.region}
         </div>
         <div
-          className={cn("col-4 flex", classNames?.view?.all)}
+          className={cn(
+            "col-4 flex",
+            game?.owns && "font-extrabold underline",
+            classNames?.view?.all,
+          )}
           data-value={strings.title}
         >
           <span className={cn("flex-1 text-center", classNames?.view?.title)}>

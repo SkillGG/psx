@@ -65,29 +65,16 @@ const fetchGamesUntil = async (
     ? [userID, take, skip, ...vars]
     : [take, skip, ...vars];
 
-  // console.log("Querying:\n", chalk.red(parent), "\nwith\n", fullVars);
-
   const parentGames = await db.$queryRawUnsafe<GameWithOwn[]>(
     parent,
     ...fullVars,
   );
-
-  // console.log(`Parent games: ${chalk.yellow(parentGames.length)}`);
-  // console.log(
-  //   "Querying:\n",
-  //   chalk.red(sub),
-  //   "\nwith\n",
-  //   parentGames.map((q) => q.id),
-  //   userID,
-  // );
 
   const subVars: [string[]] | [string[], string] = userID
     ? [parentGames.map((q) => q.id), userID]
     : [parentGames.map((q) => q.id)];
 
   const subGames = await db.$queryRawUnsafe<GameWithOwn[]>(sub, ...subVars);
-
-  // console.log(`Subgames games: ${chalk.yellow(subGames.length)}`);
 
   const subsWithNoParents = subGames.filter(
     (child) => !parentGames.some((p) => p.id === child.parent_id),
@@ -148,7 +135,6 @@ const querySortToSQL = (s: GameQuerySort) => {
   return sorts.map((q) => `"g"."${q.col}" ${q.sort}`).join(", ");
 };
 
-// Helper function to format a single condition part
 function formatCondition(
   column: GameQueryColumn,
   compare: GameQueryFilter["comparisonType"],
@@ -156,11 +142,11 @@ function formatCondition(
   cast?: GameQueryFilter["castTo"],
 ): string {
   const valuePart = compare?.includes("null")
-    ? "" // For IS NULL/IS NOT NULL, no value needed
+    ? ""
     : cast
       ? `CAST($${varNum} AS "${cast}")`
       : `$${varNum}`;
-  return `g."${column}" ${compare} ${valuePart}`.trim(); // .trim() removes extra space if valuePart is empty
+  return `g."${column}" ${compare} ${valuePart}`.trim();
 }
 
 const buildWhereClause = (s: GameQuerySearch): string => {
@@ -225,7 +211,6 @@ export const getOrderedSearchValues = (
   for (const column of Object.keys(filters) as GameQueryColumn[]) {
     const filter = filters[column];
     if (filter?.on && filter.comparisonType !== "is null") {
-      // Don't include value for IS NULL
       const value = terms[column];
       if (value !== undefined) {
         orderedValues[filter.varNum] = value;
@@ -233,35 +218,20 @@ export const getOrderedSearchValues = (
     }
   }
 
-  // Sort by varNum (key) and extract values
   return Object.entries(orderedValues)
     .sort(([num1], [num2]) => +num1 - +num2)
     .map(([, value]) => value);
-};
-
-export const getVarOrder = (search: GameQuerySearch) => {
-  const entries = Object.entries(search) as [
-    GameQueryColumn,
-    NonNullable<GameQuerySearch[GameQueryColumn]>,
-  ][];
-  const ret: Record<number, GameQueryColumn | undefined> = {};
-  for (const [k, v] of entries) {
-    if (v.on && v.comparisonType !== "is not null") {
-      ret[v.varNum] = k;
-    }
-  }
-  return ret;
 };
 
 export const queryGames = async (
   db: PrismaClient,
   userID?: string,
   sort?: GameQuerySort,
-  searchTerms?: Partial<Record<GameQueryColumn, string>>, // Renamed for clarity
+  searchTerms?: Partial<Record<GameQueryColumn, string>>,
   [skip, take] = [0, 100],
 ): Promise<GameWithSubs[]> => {
   const searchFilters: GameQuerySearch = {};
-  let nextVarNum = userID ? 4 : 3; // Starting varNum for search parameters
+  let nextVarNum = userID ? 4 : 3;
   if (searchTerms) {
     for (const [column, value] of Object.entries(searchTerms)) {
       if (value !== undefined) {
@@ -284,24 +254,6 @@ export const queryGames = async (
     sort ?? {},
     searchFilters,
   );
-  // console.log(
-  //   "Queries for: ",
-  //   userID,
-  //   searchFilters,
-  //   sort,
-  //   "\n\n",
-  //   chalk.red("UID Parent:\n"),
-  //   chalk.yellow(uidQuery),
-  //   "\n\n",
-  //   chalk.red("noUID Parent:\n"),
-  //   chalk.yellow(nouidQuery),
-  //   "\n\n",
-  //   chalk.red("UID sub:\n"),
-  //   chalk.yellow(subgames.uid),
-  //   "\n\n",
-  //   chalk.red("noUID sub:\n"),
-  //   chalk.yellow(subgames.nouid),
-  // );
   const vars = getOrderedSearchValues(searchFilters, searchTerms ?? {});
   return fetchGamesUntil(
     db,
@@ -375,11 +327,5 @@ left join "Library" as l
 where parent_id = ANY($1)
 order by owns desc${!!sortClause ? `, ${sortClause}` : ""};`,
     },
-    /**
-     * Order of variables in fullQuery or nouidQuery.
-     *
-     * Use: `varsOrder[#] // returns column name whose search value should be #th variable in the query`
-     */
-    varsOrder: getVarOrder(search),
   };
 };

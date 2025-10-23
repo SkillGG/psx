@@ -1,4 +1,5 @@
 import type { Console, Game, Region } from "@prisma/client";
+import type { ReactNode } from "react";
 import { z } from "zod/v4";
 import { zodStringToJson } from "~/utils/utils";
 
@@ -19,7 +20,7 @@ export type GameData = {
     data: Partial<Record<keyof Game, string | null | undefined>> & {
       key: string;
     };
-    message: string;
+    message: ReactNode;
     potentialFixes?: { label: string; resolve: (data: GameData) => GameData }[];
   }[];
 };
