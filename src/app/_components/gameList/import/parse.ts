@@ -7,7 +7,11 @@ const regionMap = {
   pal: "PAL",
   ntscj: "NTSCJ",
   ntscu: "NTSC",
-} satisfies Record<string, Region>;
+  NTSC: "NTSC",
+  PAL: "PAL",
+  NTSCJ: "NTSCJ",
+  NTSCU: "NTSC",
+} as const satisfies Record<string, Region>;
 
 export type GameData = {
   data: (Game & { key: string })[];
@@ -181,9 +185,12 @@ const transformFile = (data: GameList, defConsole: Console) => {
 const GameObject = z
   .object({
     id: z.string(),
-    region: z.enum(["pal", "ntsc", "ntscj", "ntscu"], {
-      error: (iss) => `Invalid region: '${iss.input as string}'`,
-    }),
+    region: z.enum(
+      (Object.keys(regionMap) as (keyof typeof regionMap)[]).map((q) => q),
+      {
+        error: (iss) => `Invalid region: '${iss.input as string}'`,
+      },
+    ),
     console: z.enum(["PSP", "PS1", "PS2"]).optional(),
     parent_id: z.string().optional(),
   })

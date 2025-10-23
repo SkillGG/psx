@@ -65,20 +65,29 @@ const fetchGamesUntil = async (
     ? [userID, take, skip, ...vars]
     : [take, skip, ...vars];
 
+  // console.log("Querying:\n", chalk.red(parent), "\nwith\n", fullVars);
+
   const parentGames = await db.$queryRawUnsafe<GameWithOwn[]>(
     parent,
     ...fullVars,
   );
 
-  console.log(`Parent games: ${chalk.yellow(parentGames.length)}`);
+  // console.log(`Parent games: ${chalk.yellow(parentGames.length)}`);
+  // console.log(
+  //   "Querying:\n",
+  //   chalk.red(sub),
+  //   "\nwith\n",
+  //   parentGames.map((q) => q.id),
+  //   userID,
+  // );
 
-  const subGames = await db.$queryRawUnsafe<GameWithOwn[]>(
-    sub,
-    parentGames.map((q) => q.id),
-    userID,
-  );
+  const subVars: [string[]] | [string[], string] = userID
+    ? [parentGames.map((q) => q.id), userID]
+    : [parentGames.map((q) => q.id)];
 
-  console.log(`Subgames games: ${chalk.yellow(subGames.length)}`);
+  const subGames = await db.$queryRawUnsafe<GameWithOwn[]>(sub, ...subVars);
+
+  // console.log(`Subgames games: ${chalk.yellow(subGames.length)}`);
 
   const subsWithNoParents = subGames.filter(
     (child) => !parentGames.some((p) => p.id === child.parent_id),
@@ -275,6 +284,24 @@ export const queryGames = async (
     sort ?? {},
     searchFilters,
   );
+  // console.log(
+  //   "Queries for: ",
+  //   userID,
+  //   searchFilters,
+  //   sort,
+  //   "\n\n",
+  //   chalk.red("UID Parent:\n"),
+  //   chalk.yellow(uidQuery),
+  //   "\n\n",
+  //   chalk.red("noUID Parent:\n"),
+  //   chalk.yellow(nouidQuery),
+  //   "\n\n",
+  //   chalk.red("UID sub:\n"),
+  //   chalk.yellow(subgames.uid),
+  //   "\n\n",
+  //   chalk.red("noUID sub:\n"),
+  //   chalk.yellow(subgames.nouid),
+  // );
   const vars = getOrderedSearchValues(searchFilters, searchTerms ?? {});
   return fetchGamesUntil(
     db,
