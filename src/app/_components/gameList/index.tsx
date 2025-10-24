@@ -94,8 +94,13 @@ export const GameList = ({
     take: filters.take,
   });
 
-  const { mutateAsync: editGameData, isPending: isMutating } =
+  const { mutateAsync: editGameData, isPending: isEditing } =
     api.games.editData.useMutation();
+
+  const { mutateAsync: reparent, isPending: isReparenting } =
+    api.games.reparent.useMutation();
+
+  const isMutating = isEditing || isReparenting;
 
   useEffect(() => {
     void util.games.list.invalidate();
@@ -106,8 +111,12 @@ export const GameList = ({
   console.log("Game#", games?.length);
   console.log("Searching with filters", filters);
 
-  const onGameRowEdit = async (prev: string, g: Game) => {
-    await editGameData({ id: prev, data: g });
+  const onGameRowEdit = async (prev: Game, g: Game) => {
+    if (prev.parent_id !== g.parent_id) {
+      await reparent({ id: prev.id, parent_id: g.parent_id });
+    } else {
+      await editGameData({ id: prev.id, data: g });
+    }
     await util.games.invalidate();
   };
 
@@ -263,14 +272,14 @@ export const GameList = ({
                   {game.subgames.length > 0 &&
                     showSubgames.includes(game.id) && (
                       <>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-0 bg-(--complement-900)"></div>
-                        <div className="h-0 bg-(--complement-900)"></div>
-                        <div className="h-0 bg-(--complement-900)"></div>
-                        <div className="h-0 bg-(--complement-900)"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="col-span-4 h-2 bg-red-500"></div>
 
                         {game.subgames.map((subgame) => {
                           return (
@@ -283,16 +292,16 @@ export const GameList = ({
                             />
                           );
                         })}
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        <div className="h-2 bg-(--complement-900)"></div>
-                        {game.subgames.length % 2 === 1 && (
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="hidden"></div>
+                        <div className="col-span-4 h-2 bg-red-500"></div>
+                        {game.subgames.length % 2 === 0 && (
                           <>
-                            <div className="h-0 bg-(--complement-900)"></div>
-                            <div className="h-0 bg-(--complement-900)"></div>
-                            <div className="h-0 bg-(--complement-900)"></div>
-                            <div className="h-0 bg-(--complement-900)"></div>
+                            <div className="hidden"></div>
+                            <div className="hidden"></div>
+                            <div className="hidden"></div>
+                            <div className="hidden"></div>
                           </>
                         )}
                       </>

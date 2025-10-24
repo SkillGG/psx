@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { type User } from "../hooks/user";
 import { cn } from "~/utils/utils";
 import DarkModeSwitch, { AccentSwitch } from "./themeSwitches";
@@ -10,7 +9,6 @@ import { Spinner } from "./spinner";
 import { useParams } from "next/navigation";
 import { SearchBar } from "./search";
 import { QuickPopover } from "./quickPopover";
-import { CaretDown } from "./icon";
 
 export const LoggedUI = ({ user }: { user: User }) => {
   const logout = api.user.logout.useMutation();
@@ -27,8 +25,8 @@ export const LoggedUI = ({ user }: { user: User }) => {
         </div>
         <QuickPopover
           Actuator={
-            <button className="group flex cursor-pointer items-center hover:text-red-500">
-              {user.nick} <CaretDown classNames={{ svg: "w-4 h-4" }} />
+            <button className="group flex cursor-pointer items-center">
+              {user.nick}
             </button>
           }
           calculateAnchor={(_, { actuator }, { main }) => {

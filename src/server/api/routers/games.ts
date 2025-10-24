@@ -87,7 +87,12 @@ export const gameRouter = createTRPCRouter({
       return insert;
     }),
   editData: adminProcedure
-    .input(z.object({ id: z.string(), data: GameData }))
+    .input(
+      z.object({
+        id: z.string(),
+        data: GameData.omit({ parent_id: true }),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const game = await ctx.db.game.update({
         where: {
@@ -100,4 +105,69 @@ export const gameRouter = createTRPCRouter({
 
       return game;
     }),
+  reparent: adminProcedure
+    .input(z.object({ id: z.string(), parent_id: z.string().nullable() }))
+    .mutation(
+      async ({ ctx, input }): Promise<{ err: string } | { ok: true }> => {
+        const { id, parent_id } = input;
+
+        const game = await ctx.db.game.findFirst({
+          where: { OR: [{ id }] },
+        });
+
+        if (!game) {
+          return { err: "Game with given ID does not exist!" };
+        }
+
+        if (!parent_id) {
+          // remove parent from id
+
+          if (!game.parent_id)
+            return { err: `Game with ID ${id} does not have a parent!` };
+
+          const parent = await ctx.db.game.update({
+            data: {
+              subgames: { delete: { id } },
+            },
+            select: {
+              subgames: true,
+              id: true,
+            },
+            where: { id: game.parent_id },
+          });
+
+          console.log(`Removed`, game, `from`, parent);
+
+          if (parent.subgames.length === 0)
+            await ctx.db.game.delete({ where: { id: parent.id } });
+
+          return { ok: true };
+        }
+
+        const parent = await ctx.db.game.findFirst({
+          where: { id: parent_id },
+        });
+
+        if (!parent) {
+          return { err: `Parent with ID ${parent_id} does not exist!` };
+        }
+
+        await ctx.db.game.upsert({
+          create: {
+            ...parent,
+            id: parent.id + "_agg",
+            parent_id: null,
+            subgames: { connect: [{ id: parent.id }, { id }] },
+          },
+          update: {
+            subgames: { connect: { id } },
+          },
+          where: {
+            id: parent.id + "_agg",
+          },
+        });
+
+        return { ok: true };
+      },
+    ),
 });

@@ -16,6 +16,8 @@ export const ImportJSONDialog = ({
 }) => {
   const popoverRef = useRef<PopoverRef>(null);
 
+  const utils = api.useUtils();
+
   const [gameData, setGameData] = useState<GameData | null>(null);
 
   const [err, setErr] = useState<string | null>(null);
@@ -74,6 +76,7 @@ export const ImportJSONDialog = ({
     setUploading([]);
     popoverRef.current?.enableAutoHide();
     console.log("Finished!");
+    void utils.games.invalidate();
   };
 
   return (

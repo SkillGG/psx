@@ -2,13 +2,13 @@
 
 import type { Console, Game, Region } from "@prisma/client";
 import type { ClassValue } from "clsx";
-import React, { Fragment, useState, type ReactNode } from "react";
+import React, { Fragment, useEffect, useState, type ReactNode } from "react";
 import { cn } from "~/utils/utils";
 import { isSafeID } from "./import/parse";
-import type { GameWithOwn } from "~/utils/gameQueries";
+import type { GameWithOwn, GameWithSubs } from "~/utils/gameQueries";
 
 type Strings =
-  | { game: GameWithOwn; gameType: "single" | "parent" | "sub" }
+  | { game: GameWithOwn | GameWithSubs; gameType: "single" | "parent" | "sub" }
   | { raw: Partial<Record<keyof GameWithOwn, string>> };
 
 type Issue = {
@@ -49,7 +49,7 @@ export const GameRow = ({
   ...props
 }: Strings & {
   toggle?: ReactNode;
-  onEdit?: (prevID: string, game: GameWithOwn) => void;
+  onEdit?: (prevID: GameWithOwn, game: GameWithOwn) => void;
   classNames?: {
     view?: Partial<Record<keyof GameWithOwn, ClassValue>> & {
       all?: ClassValue;
@@ -61,15 +61,74 @@ export const GameRow = ({
 }) => {
   const strings = "game" in props ? props.game : props.raw;
 
-  const game = "game" in props ? { ...props.game, type: props.gameType } : null;
+  const game: GameWithOwn | null =
+    "game" in props
+      ? {
+          ...props.game,
+          parent_id: "parent_id" in props.game ? props.game.parent_id : null,
+        }
+      : null;
 
   const [mode, setMode] = useState<"view" | "edit">("view");
 
-  const [editValues, setEditValues] = useState<GameWithOwn | null>(
-    game ? { ...game } : null,
-  );
+  const [editValues, setEditValues] = useState<Omit<
+    GameWithOwn,
+    "parent_id"
+  > | null>(game ? { ...game } : null);
 
-  if (mode === "view" || !game || !editValues)
+  const isAggregate = game?.id.endsWith("_agg");
+
+  const gameType = "gameType" in props ? props.gameType : "single";
+
+  useEffect(() => {
+    if (mode === "edit") {
+      function exitEditOnEscape({ code }: KeyboardEvent) {
+        if (code === "Escape") {
+          setMode("view");
+        }
+      }
+      window.addEventListener("keydown", exitEditOnEscape);
+      return () => {
+        window.removeEventListener("keydown", exitEditOnEscape);
+      };
+    }
+  }, [mode]);
+
+  if (mode === "view" || !game || !editValues) {
+    if (isAggregate)
+      return (
+        <Fragment key={`gameaggregate_${strings.id}`}>
+          <div className="hidden"></div>
+          <div className="hidden"></div>
+          <div className="hidden"></div>
+          <div
+            className={cn(
+              "col-span-4 flex",
+              game?.owns && "font-extrabold underline",
+              classNames?.view?.all,
+            )}
+            data-value={strings.title}
+          >
+            <div className="mr-auto flex flex-col" title={"Show entries"}>
+              {toggle}
+            </div>
+
+            <span className={cn("flex-1 text-center", classNames?.view?.title)}>
+              {strings.title}
+            </span>
+            {onEdit && editValues && (
+              <button
+                className="h-12 basis-16 cursor-pointer px-2 py-1"
+                onClick={() => {
+                  setMode(mode === "view" ? "edit" : "view");
+                }}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+        </Fragment>
+      );
     return (
       <Fragment key={"gamerow_" + strings.id}>
         <div
@@ -134,29 +193,91 @@ export const GameRow = ({
         </div>
       </Fragment>
     );
+  }
+
+  const saveData = () => {
+    const valid = validateGameData(editValues ?? null);
+    if (valid.success) {
+      onEdit?.(game, {
+        console: editValues.console,
+        id: editValues.id,
+        region: editValues.region,
+        title: editValues.title,
+        parent_id: game.parent_id,
+      });
+      setMode("view");
+    } else {
+      // set errros
+      alert(
+        `Issues saving!\n${valid.issues.map((q) => "- " + q.message).join("\n")}`,
+      );
+    }
+  };
+
+  if (isAggregate) {
+    return (
+      <Fragment key={`edit_gameaggregate_${strings.id}`}>
+        <div className="hidden"></div>
+        <div className="hidden"></div>
+        <div className="hidden"></div>
+        <div
+          className={cn("col-span-4 flex", classNames?.edit?.all)}
+          data-value={strings.title}
+        >
+          <input
+            className={cn("w-full flex-1", classNames?.edit?.title)}
+            value={editValues.title}
+            onChange={({ currentTarget: { value: title } }) => {
+              setEditValues((p) => (!p ? p : { ...p, title }));
+            }}
+            onKeyDown={({ code }) => {
+              if (code === "Enter") saveData();
+            }}
+          />
+          <div className="flex h-12 basis-16 flex-col">
+            <button
+              className="cursor-pointer border-b-1 px-2 py-1 text-xs text-(--regular-text)"
+              onClick={saveData}
+            >
+              Save
+            </button>
+            <button
+              className="cursor-pointer px-2 py-1 text-xs text-(--regular-text)"
+              onClick={() => {
+                setEditValues(game);
+                setMode("view");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Fragment>
+    );
+  }
 
   return (
     <Fragment key={"edit_gamerow_" + strings.id}>
       <div
-        className={cn("col-1 flex", classNames?.edit?.all)}
+        className={cn("col-1 flex gap-2 px-2", classNames?.edit?.all)}
         data-value={strings.id}
       >
         <div className="mr-auto flex flex-col">
           {toggle}
-          {game?.type === "sub" && (
+          {gameType === "sub" && (
             <button
               className={cn(
                 "cursor-pointer rounded-xl border-1 px-2 text-(--color-red-500)",
                 "hover:brightness-(--bg-hover-brightness)",
               )}
               onClick={() => {
-                onEdit?.(game.id, { ...game, parent_id: null });
+                onEdit?.(game, { ...game, parent_id: null });
               }}
             >
               R
             </button>
           )}
-          {game?.type === "single" && (
+          {gameType === "single" && (
             <button
               className={cn(
                 "cursor-pointer rounded-xl border-1 px-2 text-(--color-green-500)",
@@ -167,7 +288,7 @@ export const GameRow = ({
                 const newID = prompt("Parent's ID:", game.id);
                 if (!newID || !isSafeID(newID)) return;
 
-                onEdit?.(game.id, { ...game, parent_id: newID });
+                onEdit?.(game, { ...game, parent_id: newID });
               }}
             >
               P
@@ -176,10 +297,16 @@ export const GameRow = ({
         </div>
         <div className="flex-1 text-center">
           <input
-            className={cn("w-full", classNames?.edit?.id)}
+            className={cn(
+              "w-full border-b-1 border-dashed",
+              classNames?.edit?.id,
+            )}
             value={editValues.id}
             onChange={({ currentTarget: { value: id } }) => {
               setEditValues((p) => (!p ? p : { ...p, id }));
+            }}
+            onKeyDown={({ code }) => {
+              if (code === "Enter") saveData();
             }}
           />
         </div>
@@ -259,34 +386,26 @@ export const GameRow = ({
         </select>
       </div>
       <div
-        className={cn("col-4 flex", classNames?.edit?.all)}
+        className={cn("col-4 flex gap-2 pl-2", classNames?.edit?.all)}
         data-value={strings.title}
       >
         <input
-          className={cn("w-full flex-1", classNames?.edit?.title)}
+          className={cn(
+            "w-full flex-1 border-b-1 border-dashed",
+            classNames?.edit?.title,
+          )}
           value={editValues.title}
           onChange={({ currentTarget: { value: title } }) => {
             setEditValues((p) => (!p ? p : { ...p, title }));
+          }}
+          onKeyDown={({ code }) => {
+            if (code === "Enter") saveData();
           }}
         />
         <div className="flex h-12 basis-16 flex-col">
           <button
             className="cursor-pointer border-b-1 px-2 py-1 text-xs text-(--regular-text)"
-            onClick={() => {
-              const valid = validateGameData(editValues ?? null);
-              if (valid.success) {
-                onEdit?.(game.id, {
-                  ...game,
-                  ...editValues,
-                });
-                setMode("view");
-              } else {
-                // set errros
-                alert(
-                  `Issues saving!\n${valid.issues.map((q) => "- " + q.message).join("\n")}`,
-                );
-              }
-            }}
+            onClick={saveData}
           >
             Save
           </button>
