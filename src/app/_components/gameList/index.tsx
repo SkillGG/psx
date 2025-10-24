@@ -3,13 +3,12 @@ import { api } from "~/trpc/react";
 import { Spinner } from "../spinner";
 import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import { NewGameCreationForm } from "./create";
-import { GameRow } from "./row";
+import { GameRow, RawRow } from "./gameRow";
 import { FiltersDialog, type GameListFilters } from "./filters";
 import { cn } from "~/utils/utils";
 import { PopoverDialog, type PopoverRef } from "../popoverDialog";
 import Link from "next/link";
 import type { Game, Region } from "@prisma/client";
-import { CaretDown, CaretUp } from "../icon";
 
 const GAME_ROW_STYLES = (region: Region) => {
   return {
@@ -81,8 +80,6 @@ export const GameList = ({
     take: 100,
     page: 0,
   });
-
-  const [showSubgames, setShowSubgames] = useState<string[]>([]);
 
   const util = api.useUtils();
 
@@ -202,7 +199,7 @@ export const GameList = ({
           {listDescriptor}
         </div>
         <div className="mx-2 mt-2 grid max-h-[85lvh] grid-cols-[2fr_1fr_1fr_5fr] overflow-auto rounded-xl rounded-b-none border-2 border-(--regular-border) text-(--label-text)">
-          <GameRow
+          <RawRow
             raw={{
               console: "Console",
               id: "ID",
@@ -232,81 +229,14 @@ export const GameList = ({
                 "border-2 border-t-0 border-(--regular-border) text-(--label-text)",
               )}
             >
-              {games.map((game) => (
-                <>
-                  <GameRow
-                    game={{ ...game, parent_id: null }}
-                    gameType={game.subgames.length === 0 ? "single" : "parent"}
-                    key={"game_" + game.id}
-                    toggle={
-                      game.subgames.length > 0 && (
-                        <button
-                          className="ml-2 cursor-pointer rounded-full"
-                          onClick={() => {
-                            setShowSubgames((p) =>
-                              p.includes(game.id)
-                                ? p.filter((id) => id !== game.id)
-                                : [...p, game.id],
-                            );
-                          }}
-                        >
-                          {showSubgames.includes(game.id) ? (
-                            <CaretUp
-                              classNames={{
-                                svg: "h-5 w-5 hover:-rotate-z-90 rotate-90 transition-transform",
-                              }}
-                            />
-                          ) : (
-                            <CaretDown
-                              classNames={{
-                                svg: "h-5 w-5 hover:rotate-z-90 -rotate-90 transition-transform",
-                              }}
-                            />
-                          )}
-                        </button>
-                      )
-                    }
-                    onEdit={editable ? onGameRowEdit : undefined}
-                    classNames={GAME_ROW_STYLES(game.region)}
-                  />
-                  {game.subgames.length > 0 &&
-                    showSubgames.includes(game.id) && (
-                      <>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="col-span-4 h-2 bg-red-500"></div>
-
-                        {game.subgames.map((subgame) => {
-                          return (
-                            <GameRow
-                              onEdit={editable ? onGameRowEdit : undefined}
-                              game={subgame}
-                              gameType="sub"
-                              key={`subgame_${subgame.id}`}
-                              classNames={GAME_ROW_STYLES(subgame.region)}
-                            />
-                          );
-                        })}
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="hidden"></div>
-                        <div className="col-span-4 h-2 bg-red-500"></div>
-                        {game.subgames.length % 2 === 0 && (
-                          <>
-                            <div className="hidden"></div>
-                            <div className="hidden"></div>
-                            <div className="hidden"></div>
-                            <div className="hidden"></div>
-                          </>
-                        )}
-                      </>
-                    )}
-                </>
+              {games.map((subgame) => (
+                <GameRow
+                  game={subgame}
+                  key={"game_" + subgame.id}
+                  onEdit={onGameRowEdit}
+                  editable={editable}
+                  classNames={GAME_ROW_STYLES(subgame.region)}
+                />
               ))}
             </div>
           </>
