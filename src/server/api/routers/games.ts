@@ -1,8 +1,9 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
-import type { Game } from "@prisma/client";
-import { adminProcedure } from "../auth";
+import type { Game, PrismaClient } from "@prisma/client";
+import { adminProcedure, userProcedure } from "../auth";
 import { queryGames } from "~/utils/gameQueries";
+import { isNotNull } from "~/utils/utils";
 
 const ConsoleType = z.enum(["PS1", "PS2", "PSP"]);
 const RegionType = z.enum(["PAL", "NTSC", "NTSCJ"]);
@@ -27,14 +28,65 @@ const SearchSchema = z
 
 export type SearchSchema = z.infer<typeof SearchSchema>;
 
-const SortSchema = z.partialRecord(
-  QueryColumn,
-  z.object({
-    priority: z.number(),
-    sort: z.enum(["asc", "desc"]),
-  }),
-);
+const SortSchema = z.object({
+  ownership: z.boolean(),
+  columns: z.partialRecord(
+    QueryColumn,
+    z.object({ priority: z.number(), sort: z.enum(["asc", "desc"]) }),
+  ),
+});
+
 export type SortSchema = z.infer<typeof SortSchema>;
+
+const clearOrphanedParents = async (db: PrismaClient) => {
+  const orphanedParents = (
+    await db.game.findMany({
+      where: {
+        subgames: {
+          some: {
+            parent_id: {
+              not: null,
+            },
+          },
+        },
+      },
+      include: {
+        subgames: true,
+        _count: {
+          select: {
+            subgames: true,
+          },
+        },
+      },
+    })
+  )
+    .map((p) => {
+      return p._count.subgames > 1 ? null : p;
+    })
+    .filter(isNotNull);
+
+  console.log("Orphaned parents found!", orphanedParents);
+
+  if (orphanedParents.length) {
+    // remove all parent relations to orphaned parent
+    await db.game.updateMany({
+      where: {
+        parent_id: {
+          in: orphanedParents.map((q) => q.subgames.map((z) => z.id)).flat(20),
+        },
+      },
+      data: {
+        parent_id: null,
+      },
+    });
+    // delete orphaned parent
+    await db.game.deleteMany({
+      where: {
+        id: { in: orphanedParents.map((q) => q.id) },
+      },
+    });
+  }
+};
 
 export const gameRouter = createTRPCRouter({
   list: publicProcedure
@@ -59,6 +111,55 @@ export const gameRouter = createTRPCRouter({
       );
       return games;
     }),
+  removeGames: adminProcedure
+    .input(z.array(z.string()))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.game.deleteMany({
+        where: {
+          id: { in: input },
+        },
+      });
+
+      await clearOrphanedParents(ctx.db);
+    }),
+  markOwnership: userProcedure
+    .input(z.object({ ids: z.array(z.string()), ownership: z.boolean() }))
+    .mutation(
+      async ({
+        ctx: {
+          db,
+          user: { id },
+        },
+        input: { ids, ownership },
+      }) => {
+        if (ownership) {
+          await db.library.createMany({
+            data: ids.map((q) => {
+              return {
+                userId: id,
+                gameId: q,
+              };
+            }),
+            skipDuplicates: true,
+          });
+        } else {
+          await db.library.deleteMany({
+            where: {
+              AND: [
+                {
+                  userId: id,
+                },
+                {
+                  gameId: {
+                    in: ids,
+                  },
+                },
+              ],
+            },
+          });
+        }
+      },
+    ),
   addSingle: adminProcedure
     .input(z.object({ game: GameData }))
     .mutation(async ({ ctx, input }) => {
@@ -125,45 +226,62 @@ export const gameRouter = createTRPCRouter({
           if (!game.parent_id)
             return { err: `Game with ID ${id} does not have a parent!` };
 
-          const parent = await ctx.db.game.update({
+          await ctx.db.game.update({
+            where: {
+              id: game.id,
+            },
             data: {
-              subgames: { delete: { id } },
+              parent_id: null,
             },
-            select: {
-              subgames: true,
-              id: true,
-            },
-            where: { id: game.parent_id },
           });
 
-          console.log(`Removed`, game, `from`, parent);
-
-          if (parent.subgames.length === 0)
-            await ctx.db.game.delete({ where: { id: parent.id } });
+          await clearOrphanedParents(ctx.db);
 
           return { ok: true };
         }
 
+        const pid = parent_id.replace(/_agg/g, "");
+
         const parent = await ctx.db.game.findFirst({
-          where: { id: parent_id },
+          where: {
+            OR: [{ id: pid + "_agg" }, { id: pid }],
+          },
         });
 
+        if (parent?.id.endsWith("_agg")) {
+          // we found the aggregate
+          await ctx.db.game.update({
+            where: {
+              id,
+            },
+            data: {
+              parent_id: parent.id,
+            },
+          });
+          return { ok: true };
+        }
+
         if (!parent) {
-          return { err: `Parent with ID ${parent_id} does not exist!` };
+          return {
+            err: `No parent or aggregate with ID ${pid} exists!`,
+          };
         }
 
         await ctx.db.game.upsert({
           create: {
-            ...parent,
-            id: parent.id + "_agg",
+            console: parent.console,
+            region: parent.region,
+            title: parent.title,
+            id: pid + "_agg",
             parent_id: null,
-            subgames: { connect: [{ id: parent.id }, { id }] },
+            parent: undefined,
+            subgames: { connect: [{ id: pid }, { id }] },
           },
           update: {
             subgames: { connect: { id } },
           },
           where: {
-            id: parent.id + "_agg",
+            id: pid + "_agg",
           },
         });
 

@@ -1,7 +1,6 @@
 import type { Console, Region } from "@prisma/client";
 import type { ClassValue } from "clsx";
 import {
-  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -98,30 +97,35 @@ const DESC_ARR = "↓";
 
 const SortPicker = ({
   sort,
-  onChange,
-  userSort,
+  onColumnChange,
+  onOwnershipSortChange,
+  showUserSort,
 }: {
   sort: SortSchema;
-  onChange: (sort: keyof SortSchema, value: "asc" | "desc" | undefined) => void;
-  userSort?: { sort: boolean; toggle(): void };
+  onColumnChange: (
+    sort: keyof SortSchema["columns"],
+    value: "asc" | "desc" | undefined,
+  ) => void;
+  onOwnershipSortChange: () => void;
+  showUserSort: boolean;
 }) => {
   return (
     <div className="flex flex-col gap-2 px-2">
       {/* List of asc/desc toggles */}
-      {userSort && (
+      {showUserSort && (
         <button
           type="button"
           className={cn(
             "block cursor-pointer rounded-xl border-1 px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
-            userSort.sort && "border-(--button-submit-bg)",
-            !userSort.sort && "border-(--neutral-500)",
+            sort.ownership && "border-(--button-submit-bg)",
+            !sort.ownership && "border-(--neutral-500)",
           )}
           onClick={() => {
-            userSort.toggle();
+            onOwnershipSortChange();
           }}
         >
-          {userSort.sort ? "User-owned first" : "User-owned throughout"}
+          {sort.ownership ? "User-owned first" : "User-owned throughout"}
         </button>
       )}
       <div className="space-around items-align flex w-full gap-2">
@@ -131,19 +135,25 @@ const SortPicker = ({
           className={cn(
             "block cursor-pointer rounded-xl border-1 px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
-            sort.id?.sort && "border-(--button-submit-bg)",
-            !sort.id?.sort && "border-(--neutral-500)",
+            sort.columns.id?.sort && "border-(--button-submit-bg)",
+            !sort.columns.id?.sort && "border-(--neutral-500)",
           )}
           onClick={() => {
             // toggle sort.id
-            onChange(
+            onColumnChange(
               "id",
-              !sort.id ? "asc" : sort.id.sort === "asc" ? "desc" : undefined,
+              !sort.columns.id
+                ? "asc"
+                : sort.columns.id.sort === "asc"
+                  ? "desc"
+                  : undefined,
             );
           }}
         >
           ID
-          {sort.id ? ` ${sort.id.sort === "asc" ? ASC_ARR : DESC_ARR}` : " ="}
+          {sort.columns.id
+            ? ` ${sort.columns.id.sort === "asc" ? ASC_ARR : DESC_ARR}`
+            : " ="}
         </button>
         {/* TITLE */}
         <button
@@ -151,24 +161,24 @@ const SortPicker = ({
           className={cn(
             "block cursor-pointer rounded-xl border-1 px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
-            sort.title?.sort && "border-(--button-submit-bg)",
-            !sort.title?.sort && "border-(--neutral-500)",
+            sort.columns.title?.sort && "border-(--button-submit-bg)",
+            !sort.columns.title?.sort && "border-(--neutral-500)",
           )}
           onClick={() => {
             // toggle sort.title
-            onChange(
+            onColumnChange(
               "title",
-              !sort.title
+              !sort.columns.title
                 ? "asc"
-                : sort.title.sort === "asc"
+                : sort.columns.title.sort === "asc"
                   ? "desc"
                   : undefined,
             );
           }}
         >
           Title
-          {sort.title
-            ? ` ${sort.title.sort === "asc" ? ASC_ARR : DESC_ARR}`
+          {sort.columns.title
+            ? ` ${sort.columns.title.sort === "asc" ? ASC_ARR : DESC_ARR}`
             : " ="}
         </button>
         {/* Console */}
@@ -177,24 +187,24 @@ const SortPicker = ({
           className={cn(
             "block cursor-pointer rounded-xl border-1 px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
-            sort.console?.sort && "border-(--button-submit-bg)",
-            !sort.console?.sort && "border-(--neutral-500)",
+            sort.columns.console?.sort && "border-(--button-submit-bg)",
+            !sort.columns.console?.sort && "border-(--neutral-500)",
           )}
           onClick={() => {
             // toggle sort.console
-            onChange(
+            onColumnChange(
               "console",
-              !sort.console
+              !sort.columns.console
                 ? "asc"
-                : sort.console.sort === "asc"
+                : sort.columns.console.sort === "asc"
                   ? "desc"
                   : undefined,
             );
           }}
         >
           Console
-          {sort.console
-            ? ` ${sort.console.sort === "asc" ? ASC_ARR : DESC_ARR}`
+          {sort.columns.console
+            ? ` ${sort.columns.console.sort === "asc" ? ASC_ARR : DESC_ARR}`
             : " ="}
         </button>
         {/* Region */}
@@ -203,24 +213,24 @@ const SortPicker = ({
           className={cn(
             "block cursor-pointer rounded-xl border-1 px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
-            sort.region?.sort && "border-(--button-submit-bg)",
-            !sort.region?.sort && "border-(--neutral-500)",
+            sort.columns.region?.sort && "border-(--button-submit-bg)",
+            !sort.columns.region?.sort && "border-(--neutral-500)",
           )}
           onClick={() => {
             // toggle sort.region
-            onChange(
+            onColumnChange(
               "region",
-              !sort.region
+              !sort.columns.region
                 ? "asc"
-                : sort.region.sort === "asc"
+                : sort.columns.region.sort === "asc"
                   ? "desc"
                   : undefined,
             );
           }}
         >
           Region
-          {sort.region
-            ? ` ${sort.region.sort === "asc" ? ASC_ARR : DESC_ARR}`
+          {sort.columns.region
+            ? ` ${sort.columns.region.sort === "asc" ? ASC_ARR : DESC_ARR}`
             : " ="}
         </button>
       </div>
@@ -232,7 +242,7 @@ export const FiltersDialog = ({
   filters: initFilters,
   setFilters: saveFilters,
   classNames,
-  userSort,
+  showUserSearch,
 }: {
   filters: GameListFilters;
   setFilters: Dispatch<SetStateAction<GameListFilters>>;
@@ -240,15 +250,10 @@ export const FiltersDialog = ({
     btns?: { save?: ClassValue; reset?: ClassValue; open?: ClassValue };
     dialog?: ClassValue;
   };
-  userSort?: { sort: boolean; toggle: () => void };
+  showUserSearch?: boolean;
 }) => {
   const popoverRef = useRef<PopoverRef>(null);
   const [filters, setFilters] = useState(initFilters);
-  const [uSortVal, setUSortVal] = useState(userSort?.sort ?? false);
-  const uSort = useMemo(() => {
-    return { sort: uSortVal, toggle: () => setUSortVal((p) => !p) };
-  }, [uSortVal]);
-
   return (
     <PopoverDialog
       ref={popoverRef}
@@ -260,11 +265,6 @@ export const FiltersDialog = ({
         className={cn("flex flex-col gap-2")}
         onSubmit={(e) => {
           e.preventDefault();
-          if (userSort) {
-            if (uSort.sort !== userSort.sort) {
-              userSort.toggle();
-            }
-          }
           popoverRef.current?.hide();
           saveFilters({ ...filters, page: 0 });
         }}
@@ -365,28 +365,51 @@ export const FiltersDialog = ({
             "has-checked:border-pink-500 has-checked:text-pink-500",
           ]}
         />
+        <div>
+          Show on page:{" "}
+          <input
+            value={filters.take}
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              if (!value) return;
+              setFilters((p) => {
+                return { ...p, take: +value || 100 };
+              });
+            }}
+          />
+        </div>
         <h3 className="text-center text-xl text-(--regular-text)">
           Sorting order
         </h3>
         <SortPicker
+          showUserSort={!!showUserSearch}
           sort={filters.sort}
-          userSort={userSort ? uSort : undefined}
-          onChange={(col, val) => {
+          onOwnershipSortChange={() => {
+            setFilters((p) => {
+              return {
+                ...p,
+                sort: { ...p.sort, ownership: !p.sort.ownership },
+              };
+            });
+          }}
+          onColumnChange={(col, val) => {
             setFilters((p) => {
               let nSort = { ...p.sort };
 
-              if (!val) delete nSort[col];
+              if (!val) delete nSort.columns[col];
               else {
                 nSort = {
                   ...nSort,
-                  [col]: {
-                    sort: val,
-                    priority:
-                      Object.entries(nSort)
-                        .map(([_, v]) => {
-                          return v.priority;
-                        })
-                        .reduce((p, n) => Math.max(p, n), 0) + 1,
+                  columns: {
+                    [col]: {
+                      sort: val,
+                      priority:
+                        Object.entries(nSort.columns)
+                          .map(([_, v]) => {
+                            return v.priority;
+                          })
+                          .reduce((p, n) => Math.max(p, n), 0) + 1,
+                    },
                   },
                 };
               }
@@ -421,7 +444,6 @@ export const FiltersDialog = ({
               "hover:backdrop-brightness-(--bg-hover-brightness)",
             )}
             onClick={() => {
-              setUSortVal(userSort?.sort ?? false);
               setFilters({ ...filters, filter: {}, sort: DEFAULT_SORT });
             }}
           >

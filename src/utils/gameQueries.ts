@@ -3,16 +3,17 @@ import type { PrismaClient } from "@prisma/client";
 import { isNotNull } from "./utils";
 
 import chalk from "chalk";
+import type { SortSchema } from "~/server/api/routers/games";
 
 export type GameWithOwn = Game & {
-  owns?: 0 | 1;
+  owned?: boolean;
 };
 
 export type GameWithSubs = Pick<
   GameWithOwn,
-  "owns" | "id" | "console" | "region" | "title"
+  "owned" | "id" | "console" | "region" | "title"
 > & {
-  subgames: Game[];
+  subgames: GameWithOwn[];
 };
 
 const mergeSubgames = (list: GameWithOwn[]): GameWithSubs[] => {
@@ -29,7 +30,7 @@ const mergeSubgames = (list: GameWithOwn[]): GameWithSubs[] => {
           region: game.region,
           subgames: [],
           title: game.title,
-          owns: game.owns,
+          owned: game.owned,
         });
       }
     }
@@ -70,6 +71,8 @@ const fetchGamesUntil = async (
     ...fullVars,
   );
 
+  console.log("Parent games:", chalk.red(parentGames.length));
+
   const subVars: [string[]] | [string[], string] = userID
     ? [parentGames.map((q) => q.id), userID]
     : [parentGames.map((q) => q.id)];
@@ -93,11 +96,11 @@ const fetchGamesUntil = async (
   }
   const allGames = [...parentGames, ...subGames];
   console.log(`All games: ${chalk.yellow(allGames.length)}`);
-
   const dedupedGames = dedupeGames(allGames);
   console.log(`Deduped games: ${chalk.yellow(dedupedGames.length)}`);
-
-  return mergeSubgames(dedupedGames);
+  const mergedGames = mergeSubgames(dedupedGames);
+  console.log(`Merged games: ${chalk.yellow(mergedGames.length)}`);
+  return mergedGames;
 };
 
 export type GameQueryColumn =
@@ -107,9 +110,7 @@ export type GameQueryColumn =
   | "region"
   | "parent_id";
 
-export type GameQuerySort = Partial<
-  Record<GameQueryColumn, { priority: number; sort: "asc" | "desc" }>
->;
+export type GameQuerySort = SortSchema;
 
 type GameQueryFilter = {
   on: boolean;
@@ -121,7 +122,7 @@ type GameQueryFilter = {
 export type GameQuerySearch = Partial<Record<GameQueryColumn, GameQueryFilter>>;
 
 const querySortToSQL = (s: GameQuerySort) => {
-  const entries = Object.entries(s).toSorted(
+  const entries = Object.entries(s.columns).toSorted(
     ([_t1, { priority: p1 }], [_t2, { priority: p2 }]) => {
       return p1 - p2;
     },
@@ -135,35 +136,34 @@ const querySortToSQL = (s: GameQuerySort) => {
   return sorts.map((q) => `"g"."${q.col}" ${q.sort}`).join(", ");
 };
 
-function formatCondition(
-  column: GameQueryColumn,
-  compare: GameQueryFilter["comparisonType"],
-  varNum?: number,
-  cast?: GameQueryFilter["castTo"],
-): string {
-  const valuePart = compare?.includes("null")
-    ? ""
-    : cast
-      ? `CAST($${varNum} AS "${cast}")`
-      : `$${varNum}`;
-  return `g."${column}" ${compare} ${valuePart}`.trim();
+function formatCondition(alias?: string) {
+  return function (
+    column: GameQueryColumn,
+    compare: GameQueryFilter["comparisonType"],
+    varNum?: number,
+    cast?: GameQueryFilter["castTo"],
+  ): string {
+    const valuePart = compare?.includes("null")
+      ? ""
+      : cast
+        ? `CAST($${varNum} AS "${cast}")`
+        : `$${varNum}`;
+    return `${alias ?? "g"}."${column}" ${compare} ${valuePart}`.trim();
+  };
 }
 
-const buildWhereClause = (s: GameQuerySearch): string => {
+const buildWhereClause = (s: GameQuerySearch, alias?: string): string => {
   const conditions: string[] = [];
   const idOrTitle: string[] = [];
+
+  const format = formatCondition(alias);
+
   if (s.id?.on) {
-    idOrTitle.push(
-      formatCondition("id", s.id.comparisonType ?? "LIKE", s.id.varNum),
-    );
+    idOrTitle.push(format("id", s.id.comparisonType ?? "LIKE", s.id.varNum));
   }
   if (s.title?.on) {
     idOrTitle.push(
-      formatCondition(
-        "title",
-        s.title.comparisonType ?? "LIKE",
-        s.title.varNum,
-      ),
+      format("title", s.title.comparisonType ?? "LIKE", s.title.varNum),
     );
   }
   if (idOrTitle.length > 0) {
@@ -171,7 +171,7 @@ const buildWhereClause = (s: GameQuerySearch): string => {
   }
   if (s.console?.on) {
     conditions.push(
-      formatCondition(
+      format(
         "console",
         s.console.comparisonType ?? "=",
         s.console.varNum,
@@ -181,7 +181,7 @@ const buildWhereClause = (s: GameQuerySearch): string => {
   }
   if (s.region?.on) {
     conditions.push(
-      formatCondition(
+      format(
         "region",
         s.region.comparisonType ?? "=",
         s.region.varNum,
@@ -191,7 +191,7 @@ const buildWhereClause = (s: GameQuerySearch): string => {
   }
   if (s.parent_id?.on && s.parent_id.comparisonType) {
     conditions.push(
-      formatCondition(
+      format(
         "parent_id",
         s.parent_id.comparisonType,
         -1, // -1 bc can only be NULL/NOT NULL
@@ -199,7 +199,7 @@ const buildWhereClause = (s: GameQuerySearch): string => {
     );
   }
   if (conditions.length === 0) return "";
-  return `WHERE ${conditions.join(" AND\n      ")}`;
+  return `${conditions.join(" AND\n      ")}`.trim();
 };
 
 export const getOrderedSearchValues = (
@@ -251,7 +251,7 @@ export const queryGames = async (
     comparisonType: "is null",
   };
   const { uidQuery, nouidQuery, subgames } = createGameQuery(
-    sort ?? {},
+    sort ?? { ownership: !!userID, columns: {} },
     searchFilters,
   );
   const vars = getOrderedSearchValues(searchFilters, searchTerms ?? {});
@@ -272,9 +272,40 @@ export const createGameQuery = (
   sort: GameQuerySort,
   search: GameQuerySearch = {},
 ) => {
-  const sortClause = querySortToSQL(sort);
+  const userSort = querySortToSQL(sort);
 
   const whereClause = buildWhereClause(search);
+
+  console.log("Where caluse", whereClause);
+
+  const where = whereClause ? `where ${whereClause}` : "";
+
+  const ownershipSort = sort.ownership
+    ? `(CASE WHEN ((c.has_children AND NOT c.has_unowned_child) OR c.direct_owned) THEN 1 ELSE 0 END) desc,
+(case when (c.has_children and c.has_owned_child) then 1 else 0 end) desc`
+    : null;
+
+  const subOwnershipSort = sort.ownership
+    ? `(case when (l."userId" = $2) then 1 else 0 end) desc`
+    : null;
+
+  const sortClause =
+    userSort || ownershipSort
+      ? `order by ${[ownershipSort, userSort].filter(isNotNull).join(",\n")}`
+      : null;
+
+  const subSortClause =
+    userSort || subOwnershipSort
+      ? `order by ${[subOwnershipSort, userSort].filter(isNotNull).join(",\n")}`
+      : null;
+
+  const childWhere = buildWhereClause(
+    {
+      ...search,
+      parent_id: undefined,
+    },
+    "gx",
+  );
 
   return {
     /**
@@ -289,11 +320,32 @@ export const createGameQuery = (
      *
      * $4+ - defined in {@link .varsOrder}
      */
-    uidQuery: `Select *, case when (l."userId" = $1) then 1 else 0 end as owns from "Game" as g
-left join "Library" as l
-  on l."gameId" = g.id
-${whereClause}
-order by owns desc${!!sortClause ? `, ${sortClause} ` : " "} limit $2 offset $3;`,
+    uidQuery: `SELECT
+g.*,
+((c.has_children AND NOT c.has_unowned_child) OR c.direct_owned) AS owned
+FROM "Game" g
+LEFT JOIN LATERAL (
+  SELECT
+    EXISTS (SELECT 1 FROM "Game" ch WHERE ch.parent_id = g.id) AS has_children,
+    ${childWhere ? `exists (select 1 from "Game" gx where gx.parent_id = g.id and ${childWhere}) as found_children,` : ""}
+    EXISTS (
+      SELECT 1 FROM "Game" ch
+      WHERE ch.parent_id = g.id
+      AND NOT EXISTS (
+        SELECT 1 FROM "Library" l2 WHERE l2."userId" = $1 AND l2."gameId" = ch.id
+      )
+    ) AS has_unowned_child,
+    exists (select 1 from "Game" ch where ch.parent_id = g.id
+      and exists (
+        select 1 from "Library" l2 where l2."userId" = $1 and l2."gameId" = ch.id
+      )
+    ) as has_owned_child,
+    EXISTS (SELECT 1 FROM "Library" l WHERE l."userId" = $1 AND l."gameId" = g.id) AS direct_owned
+  ) c
+  ON true
+${childWhere ? `where c.found_children or (${whereClause})` : where}
+${sortClause} 
+LIMIT $2 OFFSET $3;`,
     /**
      * Full db query without userID ordering
      * Params:
@@ -304,28 +356,29 @@ order by owns desc${!!sortClause ? `, ${sortClause} ` : " "} limit $2 offset $3;
      *
      * $3+ - defined in {@link .varsOrder}
      */
-    nouidQuery: `Select *, 0 as owns from "Game" as g
-${whereClause}
-${!!sortClause ? `order by ${sortClause} ` : " "}limit $1 offset $2;`,
+    nouidQuery: `Select *, false as owned from "Game" as g
+${where}
+${sortClause ?? ""}
+limit $1 offset $2;`,
     subgames: {
       /** Params:
        *
        * $1 - Array of gameIDs
        */
-      nouid: `select *, 0 as owns from "Game" as g
+      nouid: `select *, false as owned from "Game" as g
 where parent_id = ANY($1)
-${!!sortClause ? `order by ${sortClause}` : ""};`,
+${subSortClause ?? ""};`,
       /** Params:
        *
        * $1 - Array of gameIDs
        *
        * $2 - userID
        */
-      uid: `select *, case when (l."userId" = $2) then 1 else 0 end as owns from "Game" as g
+      uid: `select *, case when (l."userId" = $2) then true else false end as owned from "Game" as g
 left join "Library" as l
   on l."gameId" = g.id
 where parent_id = ANY($1)
-order by owns desc${!!sortClause ? `, ${sortClause}` : ""};`,
+${subSortClause ?? ""};`,
     },
   };
 };

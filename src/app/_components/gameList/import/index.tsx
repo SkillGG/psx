@@ -40,7 +40,7 @@ export const ImportJSONDialog = ({
     if (!gameData) return;
     setIsUploading(true);
     popoverRef.current?.disableAutoHide();
-    const batchSize = 50;
+    const batchSize = 200;
     const queue = gameData.data
       .map((q) => (deselected.includes(q.key) ? null : q.key))
       .map((q) => (q === null ? q : gameData.data.find((z) => z.key === q)))

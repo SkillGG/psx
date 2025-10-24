@@ -29,6 +29,11 @@ enum Status {
     USER
 }
 
+/**
+ * - CREATE INDEX idx_library_user_game ON "Library" ("userId", "gameId");
+ * - CREATE INDEX idx_game_parent ON "Game" (parent_id);
+ */
+
 model Game {
     id String @id
 
@@ -42,14 +47,18 @@ model Game {
     parent_id String?
     parent    Game?   @relation("ParentSubgame", references: [id], fields: [parent_id])
     subgames  Game[]  @relation("ParentSubgame")
+
+    @@index([parent_id])
 }
 
 model Library {
-    conn_id Int    @id
+    conn_id Int    @id @default(autoincrement())
     user_id User   @relation(fields: [userId], references: [id])
     game_id Game   @relation(fields: [gameId], references: [id])
     userId  String
     gameId  String
+
+    @@index([userId, gameId])
 }
 
 model Session {

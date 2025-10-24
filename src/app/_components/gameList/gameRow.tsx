@@ -1,12 +1,13 @@
 "use client";
 
 import type { ClassValue } from "clsx";
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import type { GameWithOwn, GameWithSubs } from "~/utils/gameQueries";
 import { cn } from "~/utils/utils";
-import { CaretDown, CaretUp } from "../icon";
+import { CaretDown, CaretUp, NotOwnedIcon, OwnedIcon } from "../icon";
 import { isSafeID } from "./import/parse";
 import type { Console, Region } from "@prisma/client";
+import { GAME_ROW_STYLES } from ".";
 
 type GameColumn = keyof Pick<
   GameWithOwn,
@@ -17,6 +18,7 @@ type RowMode = "view" | "edit";
 
 type EditFunction = (p: GameWithOwn, n: GameWithOwn) => void;
 type ReparentFuntion = (p: GameWithOwn, n: string | null) => void;
+type ToggleSelectedFunvtion = (id: string, state: boolean) => void;
 
 const Aggregate = ({
   agg,
@@ -24,12 +26,18 @@ const Aggregate = ({
   classNames,
   reparentSubgames,
   editable,
+  selected,
+  toggleSelected,
+  toggleable,
 }: {
   classNames?: RowClassnames;
   agg: GameWithSubs;
   onEdit: EditFunction;
   editable?: boolean;
   reparentSubgames: ReparentFuntion;
+  toggleable?: boolean;
+  toggleSelected: ToggleSelectedFunvtion;
+  selected: string[];
 }) => {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<RowMode>("view");
@@ -53,7 +61,10 @@ const Aggregate = ({
   };
 
   const listToggle = (
-    <div className="absolute left-0 flex gap-2" title={"Show entries"}>
+    <div
+      className="absolute left-0 flex gap-2"
+      title={"Show entries for " + `(${agg.id})`}
+    >
       <div>
         <button
           className="cursor-pointer rounded-full"
@@ -76,15 +87,42 @@ const Aggregate = ({
           )}
         </button>
       </div>
-      <div className="mr-auto flex">{agg.owns ? "Owns" : "No own"}</div>
+      <div className="mr-auto flex">
+        {agg?.owned ? (
+          <OwnedIcon />
+        ) : (
+          <>
+            {agg.subgames.reduce((p, n) => p + (!!n.owned ? 1 : 0), 0)}/
+            {agg.subgames.length}
+          </>
+        )}
+        {toggleable && (
+          <input
+            type="checkbox"
+            className="ml-2"
+            checked={agg.subgames.every((sg) => selected.includes(sg.id))}
+            onChange={() => {
+              for (const { id, owned } of agg.subgames)
+                toggleSelected(id, !!owned);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 
   const titleEditElement = (
-    <div className={cn("col-span-4 flex")}>
+    <div
+      className={cn(
+        "relative col-span-4 flex",
+        classNames?.edit?.all,
+        classNames?.edit?.title,
+        "not-lg:col-span-3 not-lg:row-span-1",
+      )}
+    >
       {listToggle}
       <input
-        className={cn("w-full flex-1")}
+        className={cn("w-full flex-1", classNames?.edit?.title_input)}
         value={editValues.title}
         onChange={({ currentTarget: { value: title } }) => {
           setEditValues((p) => (!p ? p : { ...p, title }));
@@ -114,11 +152,14 @@ const Aggregate = ({
     <div
       className={cn(
         "relative col-span-4 flex text-center",
-        agg?.owns && "font-extrabold underline",
+        agg?.owned && "font-extrabold underline",
+        classNames?.view?.all,
+        classNames?.view?.title,
+        "not-lg:col-span-3 not-lg:row-span-1",
       )}
     >
       {listToggle}
-      <span className={cn("flex-1 text-center", agg?.owns && "text-red-500")}>
+      <span className={cn("flex-1 text-center", agg?.owned && "text-red-500")}>
         {agg.title}
       </span>
       {editable && (
@@ -147,6 +188,9 @@ const Aggregate = ({
           onEdit={onEdit}
           editable={editable}
           games={agg.subgames}
+          toggleable={toggleable}
+          selected={selected}
+          toggleSelected={toggleSelected}
         />
       )}
     </Fragment>
@@ -158,24 +202,38 @@ const SubGames = ({
   editable,
   onEdit,
   reparent,
+  // classNames,
+  selected,
+  toggleSelected,
+  toggleable,
 }: {
   games: GameWithOwn[];
   editable?: boolean;
   onEdit: EditFunction;
   reparent: ReparentFuntion;
+  classNames?: RowClassnames;
+  toggleable?: boolean;
+  toggleSelected: ToggleSelectedFunvtion;
+  selected: string[];
 }) => {
   return (
     <Fragment>
+      <span className="col-span-4 box-border block border-t-[6px] [border-style:ridge] border-(--regular-border)"></span>
       {games.map((game) => (
         <Game
           onEdit={onEdit}
+          classNames={GAME_ROW_STYLES(game.region)}
           reparent={reparent}
           editable={editable}
           type="sub"
           key={`subgame_of_${game.parent_id}:${game.id}`}
           game={game}
+          selected={selected}
+          toggleSelected={toggleSelected}
+          toggleable={toggleable}
         />
       ))}
+      <span className="col-span-4 box-border block border-[6px] border-x-0 border-b-0 [border-style:ridge] border-(--regular-border)"></span>
     </Fragment>
   );
 };
@@ -186,12 +244,14 @@ const GameEdit = ({
   onEdit,
   cancel,
   reparent,
+  classNames,
 }: {
   type?: "sub" | "single";
   game: GameWithOwn;
   onEdit: EditFunction;
   reparent: ReparentFuntion;
   cancel: () => void;
+  classNames: RowClassnames["edit"];
 }) => {
   const [editValues, setEditValues] = useState<GameWithOwn>({ ...game });
   const saveData = () => {
@@ -205,7 +265,9 @@ const GameEdit = ({
   };
   return (
     <Fragment>
-      <div className={cn("col-1 flex gap-2 px-2")}>
+      <div
+        className={cn("col-1 flex gap-2 px-2", classNames?.id, classNames?.all)}
+      >
         <div className="mr-auto flex flex-col">
           {type === "sub" && (
             <button
@@ -237,9 +299,12 @@ const GameEdit = ({
             </button>
           )}
         </div>
-        <div className="flex-1 text-center">
+        <div className={cn("flex-1 text-center")}>
           <input
-            className={cn("w-full border-b-1 border-dashed")}
+            className={cn(
+              "w-full border-b-1 border-dashed",
+              classNames?.id_input,
+            )}
             value={editValues.id}
             onChange={({ currentTarget: { value: id } }) => {
               setEditValues((p) => (!p ? p : { ...p, id }));
@@ -250,9 +315,12 @@ const GameEdit = ({
           />
         </div>
       </div>
-      <div className={cn("col-2 flex")}>
+      <div className={cn("col-2 flex", classNames?.console, classNames?.all)}>
         <select
-          className={cn("r-select w-full cursor-pointer bg-transparent")}
+          className={cn(
+            "r-select w-full cursor-pointer bg-transparent",
+            classNames?.console_input,
+          )}
           onChange={({ currentTarget: { value: console } }) => {
             const guard = (s: string): s is Console =>
               ["PS1", "PS2", "PSP"].includes(s);
@@ -280,9 +348,12 @@ const GameEdit = ({
           </option>
         </select>
       </div>
-      <div className={cn("col-3 flex")}>
+      <div className={cn("col-3 flex", classNames?.region, classNames?.all)}>
         <select
-          className={cn("r-select w-full cursor-pointer bg-transparent")}
+          className={cn(
+            "r-select w-full cursor-pointer bg-transparent",
+            classNames?.region_input,
+          )}
           value={editValues.region}
           onChange={({ currentTarget: { value: region } }) => {
             const guard = (s: string): s is Region =>
@@ -310,9 +381,18 @@ const GameEdit = ({
           </option>
         </select>
       </div>
-      <div className={cn("col-4 flex gap-2 pl-2")}>
+      <div
+        className={cn(
+          "col-4 flex gap-2 pl-2",
+          classNames?.title,
+          classNames?.all,
+        )}
+      >
         <input
-          className={cn("w-full flex-1 border-b-1 border-dashed")}
+          className={cn(
+            "w-full flex-1 border-b-1 border-dashed",
+            classNames?.title_input,
+          )}
           value={editValues.title}
           onChange={({ currentTarget: { value: title } }) => {
             setEditValues((p) => ({ ...p, title }));
@@ -349,6 +429,10 @@ const Game = ({
   type = "single",
   reparent,
   classNames,
+
+  selected,
+  toggleSelected,
+  toggleable,
 }: {
   game: GameWithOwn;
   editable?: boolean;
@@ -356,6 +440,9 @@ const Game = ({
   reparent: ReparentFuntion;
   type?: "sub" | "single";
   classNames?: RowClassnames;
+  toggleable?: boolean;
+  toggleSelected: ToggleSelectedFunvtion;
+  selected: string[];
 }) => {
   const [mode, setMode] = useState<RowMode>("view");
 
@@ -363,6 +450,7 @@ const Game = ({
     return (
       <Fragment>
         <GameEdit
+          classNames={classNames?.edit}
           cancel={() => setMode("view")}
           game={game}
           onEdit={onEdit}
@@ -375,23 +463,36 @@ const Game = ({
 
   return (
     <Fragment>
-      <div className={cn("relative col-1 flex")}>
-        <div className="absolute left-2 flex gap-2" title={"Show entries"}>
-          <div className="mr-auto flex">{game?.owns ? "Owns" : "No own"}</div>
-        </div>
-        <div
-          className={cn(
-            "flex-1 text-center",
-            game?.owns && "font-extrabold underline",
-          )}
-        >
-          {game.id}
-        </div>
-      </div>
-      <div className={cn("col-2 flex")}>{game.console}</div>
-      <div className={cn("col-3 flex")}>{game.region}</div>
       <div
-        className={cn("col-4 flex", game?.owns && "font-extrabold underline")}
+        className={cn(
+          "relative col-1 flex",
+          classNames?.view?.all,
+          classNames?.view?.id,
+        )}
+      >
+        <div className="absolute left-2 flex gap-2">
+          <div className="mr-auto flex gap-2">
+            {game?.owned ? <OwnedIcon /> : <NotOwnedIcon />}
+            {toggleable && (
+              <input
+                type="checkbox"
+                checked={selected.includes(game.id)}
+                onChange={() => {
+                  toggleSelected(game.id, !!game.owned);
+                }}
+              />
+            )}
+          </div>
+        </div>
+        {game.id}
+      </div>
+      <div
+        className={cn(
+          "col-4 flex",
+          game?.owned && "font-extrabold underline",
+          classNames?.view?.all,
+          classNames?.view?.title,
+        )}
       >
         <span className={cn("flex-1 text-center")}>{game.title}</span>
         {editable && (
@@ -405,33 +506,48 @@ const Game = ({
           </button>
         )}
       </div>
+      <div
+        className={cn(
+          "col-2 flex",
+          classNames?.view?.all,
+          classNames?.view?.console,
+        )}
+      >
+        {game.console}
+      </div>
+      <div
+        className={cn(
+          "col-3 flex",
+          classNames?.view?.all,
+          classNames?.view?.region,
+        )}
+      >
+        {game.region}
+      </div>
     </Fragment>
   );
 };
 
 export const RawRow = ({
   raw,
-  //   classNames
+  classNames,
 }: {
-  raw: Record<GameColumn, string>;
-  classNames: {
-    view?: Partial<Record<GameColumn, ClassValue>> & {
-      all?: ClassValue;
-    };
-    edit?: Partial<Record<GameColumn, ClassValue>> & {
-      all?: ClassValue;
-    };
-  };
+  raw: Record<GameColumn, ReactNode>;
+  classNames?: RowClassnames["view"];
 }) => {
   return (
     <Fragment>
-      <div className={cn("relative col-1 flex")}>
-        <div className={cn("flex-1 text-center")}>{raw.id}</div>
+      <div className={cn("col-1 flex", classNames?.all, classNames?.id)}>
+        {raw.id}
       </div>
-      <div className={cn("col-2 flex")}>{raw.console}</div>
-      <div className={cn("col-3 flex")}>{raw.region}</div>
-      <div className={cn("col-4 flex")}>
-        <span className={cn("flex-1 text-center")}>{raw.title}</span>
+      <div className={cn("col-2 flex", classNames?.all, classNames?.console)}>
+        {raw.console}
+      </div>
+      <div className={cn("col-3 flex", classNames?.all, classNames?.region)}>
+        {raw.region}
+      </div>
+      <div className={cn("col-4 flex", classNames?.all, classNames?.title)}>
+        {raw.title}
       </div>
     </Fragment>
   );
@@ -441,21 +557,28 @@ type RowClassnames = {
   view?: Partial<Record<GameColumn, ClassValue>> & {
     all?: ClassValue;
   };
-  edit?: Partial<Record<GameColumn, ClassValue>> & {
-    all?: ClassValue;
-  };
+  edit?: Partial<Record<GameColumn, ClassValue>> &
+    Partial<Record<`${GameColumn}_input`, ClassValue>> & {
+      all?: ClassValue;
+    };
 };
 
 export const GameRow = ({
-  //   classNames,
+  classNames,
   game,
   onEdit,
   editable,
+  toggleSelected,
+  selected,
+  toggleable,
 }: {
   game: GameWithSubs;
   classNames: RowClassnames;
   onEdit: (prev: GameWithOwn, next: GameWithOwn) => void;
   editable?: boolean;
+  toggleable?: boolean;
+  selected: string[];
+  toggleSelected: ToggleSelectedFunvtion;
 }) => {
   return (
     <Fragment key={`game_${game.id}`}>
@@ -468,6 +591,9 @@ export const GameRow = ({
           reparentSubgames={(game, parent_id) => {
             onEdit(game, { ...game, parent_id });
           }}
+          toggleable={toggleable}
+          selected={selected}
+          toggleSelected={toggleSelected}
         />
       ) : (
         <Game
@@ -478,6 +604,9 @@ export const GameRow = ({
           }}
           editable={editable}
           game={{ ...game, parent_id: null }}
+          toggleable={toggleable}
+          selected={selected}
+          toggleSelected={toggleSelected}
         />
       )}
     </Fragment>

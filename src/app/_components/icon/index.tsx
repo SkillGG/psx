@@ -35,3 +35,11 @@ export const CaretUp: Icon<"path"> = ({ classNames }) => {
     </svg>
   );
 };
+
+export const OwnedIcon: Icon<"path"> = ({}) => {
+  return <span className="font-bold text-green-500">✓</span>;
+};
+
+export const NotOwnedIcon: Icon = ({}) => {
+  return <span className="font-bold text-red-500">X</span>;
+};
