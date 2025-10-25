@@ -6,6 +6,8 @@ import React, {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
+  type MouseEvent,
   type PropsWithChildren,
   type ReactNode,
   type RefObject,
@@ -19,8 +21,22 @@ const DEFAULT_QUICK_POPUP_STYLES = cn(
 );
 
 export type QuickRef = {
+  showing: () => void;
   toggle: () => void;
-  show: () => void;
+  updateAnchor: (
+    options?:
+      | { fnParams: Parameters<CalculateAnchorFunction> }
+      | {
+          event: MouseEvent<Element> | KeyboardEvent<Element>;
+        },
+  ) => void;
+  show: (
+    options?:
+      | { fnParams: Parameters<CalculateAnchorFunction> }
+      | {
+          event: MouseEvent<Element> | KeyboardEvent<Element>;
+        },
+  ) => void;
   hide: () => void;
   getElement: () => HTMLElement | null;
   getActuator: () => PopoverActuator;
@@ -32,12 +48,12 @@ function getAnchorValue(
   calculateAnchor: CalculateAnchorFunction | undefined,
   { clientX, clientY }: { clientX: number; clientY: number },
   elementRef: React.RefObject<HTMLDivElement | null>,
-  actuator: HTMLElement,
   childSize: [number, number],
+  actuator?: HTMLElement,
 ) {
   if (!elementRef.current) return [0, 0];
   const calcAnchor = calculateAnchor ?? (({ x, y }) => [x, y]);
-  const actSize = actuator.getBoundingClientRect();
+  const actSize = actuator?.getBoundingClientRect();
   const mainSize = elementRef.current.getBoundingClientRect();
   const anch = calcAnchor(
     { x: clientX, y: clientY },
@@ -46,7 +62,7 @@ function getAnchorValue(
       main: elementRef.current,
     },
     {
-      actuator: [actSize.width, actSize.height],
+      actuator: actSize ? [actSize.width, actSize.height] : undefined,
       main: [mainSize.width || childSize[0], mainSize.height || childSize[1]],
     },
   );
@@ -55,8 +71,8 @@ function getAnchorValue(
 
 type CalculateAnchorFunction = (
   clickPos: { x: number; y: number },
-  elements: { actuator: HTMLElement; main: HTMLDivElement },
-  sizes: { actuator: [number, number]; main: [number, number] },
+  elements: { actuator?: HTMLElement; main: HTMLDivElement },
+  sizes: { actuator?: [number, number]; main: [number, number] },
 ) => [number, number];
 
 export const QuickPopover = ({
@@ -76,6 +92,8 @@ export const QuickPopover = ({
   calculateAnchor?: CalculateAnchorFunction;
 }>) => {
   const elementRef = useRef<HTMLDivElement>(null);
+
+  const [showing, setShowing] = useState(false);
 
   const [anchor, setAnchor] = useState([0, 0]);
   const [childSize, setChildSize] = useState<[number, number]>([0, 0]);
@@ -99,11 +117,53 @@ export const QuickPopover = ({
       hide: () => {
         elementRef.current?.hidePopover();
       },
-      show: () => {
+      showing: () => {
+        return showing;
+      },
+      show: (ev) => {
+        if (!ev) {
+        } else if ("event" in ev) {
+          const e = ev.event;
+          setActuatorEl(e.currentTarget as HTMLElement);
+          if (!elementRef.current) return;
+          if (e.nativeEvent instanceof MouseEvent) {
+            const mEv = e as MouseEvent;
+            setClickPos([mEv.clientX, mEv.clientY]);
+            Actuator.props.onClick?.(mEv);
+          }
+        } else {
+          const { x, y } = ev.fnParams[0];
+          setClickPos([x, y]);
+          const els = ev.fnParams[1];
+          if (els.actuator) setActuatorEl(els.actuator);
+          const sizes = ev.fnParams[2];
+          setChildSize(sizes.main);
+        }
         elementRef.current?.showPopover();
+        // setShowing(true);
+      },
+      updateAnchor: (ev) => {
+        if (!ev) return;
+        if ("event" in ev) {
+          const e = ev.event;
+          setActuatorEl(e.currentTarget as HTMLElement);
+          if (!elementRef.current) return;
+          if (e.nativeEvent instanceof MouseEvent) {
+            const mEv = e as MouseEvent;
+            setClickPos([mEv.clientX, mEv.clientY]);
+          }
+        } else {
+          const { x, y } = ev.fnParams[0];
+          setClickPos([x, y]);
+          const els = ev.fnParams[1];
+          if (els.actuator) setActuatorEl(els.actuator);
+          const sizes = ev.fnParams[2];
+          setChildSize(sizes.main);
+        }
       },
       toggle: () => {
         elementRef.current?.togglePopover();
+        // setShowing((p) => !p);
       },
       getActuator: () => actuatorElement,
       getElement: () => elementRef.current,
@@ -126,16 +186,21 @@ export const QuickPopover = ({
     if (!elementRef.current) return;
     // onpopoverstatechanged
     elementRef.current.ontoggle = (e) => {
-      if (!elementRef.current || !actuatorEl) return;
+      if (!elementRef.current) {
+        console.log("No elRef!");
+        return;
+      }
       const ref = (e.currentTarget as HTMLElement).getBoundingClientRect();
       if (ref.width && ref.height) setChildSize([ref.width, ref.height]);
       const anch = getAnchorValue(
         calculateAnchor,
         { clientX: clickPos[0], clientY: clickPos[1] },
         elementRef,
-        actuatorEl,
         childSize,
+        actuatorEl ?? undefined,
       );
+      console.log("Got anchor", anch);
+      setShowing((p) => !p);
       setAnchor(anch);
     };
   }, [actuatorEl, calculateAnchor, childSize, clickPos]);

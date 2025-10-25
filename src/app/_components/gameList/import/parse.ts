@@ -49,6 +49,7 @@ const transformFile = (data: GameList, defConsole: Console) => {
       key: `importgame_${i++}`,
       title: "title" in q ? q.title.trim() : q.name.trim(),
       region: regionMap[cR],
+      additionalInfo: q.extra ?? null,
     };
 
     if (!cur.title || !cur.id || !cur.region) {
@@ -194,6 +195,7 @@ const GameObject = z
     ),
     console: z.enum(["PSP", "PS1", "PS2"]).optional(),
     parent_id: z.string().optional(),
+    extra: z.string().optional(),
   })
   .and(z.object({ title: z.string() }).or(z.object({ name: z.string() })));
 

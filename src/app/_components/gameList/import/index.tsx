@@ -44,13 +44,21 @@ export const ImportJSONDialog = ({
     const queue = gameData.data
       .map((q) => (deselected.includes(q.key) ? null : q.key))
       .map((q) => (q === null ? q : gameData.data.find((z) => z.key === q)))
-      .filter(isNotNull);
+      .filter(isNotNull)
+      .toSorted((a, b) => {
+        if (!a.parent_id) {
+          if (b.parent_id) return -1;
+          return 0;
+        }
+        if (b.parent_id) return 0;
+        return 1;
+      });
     let batchNum = 1;
     console.log("Batch #", batchNum);
-    console.log(queue.length);
 
     while (queue.length > 0) {
       const curBatch = queue.splice(0, batchSize);
+      console.log(curBatch);
       setInQueue(queue.map(({ key }) => key));
       const curBKeys = curBatch.map(({ key }) => key);
       setUploading(curBKeys);
@@ -187,6 +195,21 @@ export const ImportJSONDialog = ({
                           className="cursor-pointer rounded-xl border-1 px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
                         >
                           Ignore non-solvable
+                        </button>
+                        <button
+                          onClick={() => {
+                            gameData.warns.forEach((res) => {
+                              if (!res.potentialFixes) return;
+                              const ignore = res.potentialFixes.find(
+                                (q) => q.label === "Ignore",
+                              );
+                              if (!ignore) return; // cannot ignore
+                              setGameData((p) => (!p ? p : ignore.resolve(p)));
+                            });
+                          }}
+                          className="cursor-pointer rounded-xl border-1 px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
+                        >
+                          Ignore all
                         </button>
                       </div>
                     </>

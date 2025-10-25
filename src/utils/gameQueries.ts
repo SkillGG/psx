@@ -11,7 +11,7 @@ export type GameWithOwn = Game & {
 
 export type GameWithSubs = Pick<
   GameWithOwn,
-  "owned" | "id" | "console" | "region" | "title"
+  "owned" | "id" | "console" | "region" | "title" | "additionalInfo"
 > & {
   subgames: GameWithOwn[];
 };
@@ -30,6 +30,7 @@ const mergeSubgames = (list: GameWithOwn[]): GameWithSubs[] => {
           region: game.region,
           subgames: [],
           title: game.title,
+          additionalInfo: game.additionalInfo,
           owned: game.owned,
         });
       }

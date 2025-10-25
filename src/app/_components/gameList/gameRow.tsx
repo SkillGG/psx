@@ -1,13 +1,14 @@
 "use client";
 
 import type { ClassValue } from "clsx";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 import type { GameWithOwn, GameWithSubs } from "~/utils/gameQueries";
 import { cn } from "~/utils/utils";
 import { CaretDown, CaretUp, NotOwnedIcon, OwnedIcon } from "../icon";
 import { isSafeID } from "./import/parse";
 import type { Console, Region } from "@prisma/client";
 import { GAME_ROW_STYLES } from ".";
+import { QuickPopover, type QuickRef } from "../quickPopover";
 
 type GameColumn = keyof Pick<
   GameWithOwn,
@@ -52,6 +53,7 @@ const Aggregate = ({
         parent_id: null,
         region: editValues.region,
         title: editValues.title,
+        additionalInfo: editValues.additionalInfo,
       },
     );
   };
@@ -111,6 +113,9 @@ const Aggregate = ({
     </div>
   );
 
+  const extraRef = useRef<QuickRef>(null);
+  const extraTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
   const titleEditElement = (
     <div
       className={cn(
@@ -119,6 +124,22 @@ const Aggregate = ({
         classNames?.edit?.title,
         "not-lg:col-span-3 not-lg:row-span-1",
       )}
+      onMouseEnter={() => {
+        if (extraTimerRef.current) {
+          clearTimeout(extraTimerRef.current);
+          extraTimerRef.current = null;
+        }
+        const timer = setTimeout(() => {
+          console.log("Showing popover");
+        });
+        extraTimerRef.current = timer;
+      }}
+      onMouseLeave={() => {
+        if (extraTimerRef.current) {
+          clearTimeout(extraTimerRef.current);
+          extraTimerRef.current = null;
+        }
+      }}
     >
       {listToggle}
       <input
@@ -157,6 +178,29 @@ const Aggregate = ({
         classNames?.view?.title,
         "not-lg:col-span-3 not-lg:row-span-1",
       )}
+      onMouseEnter={(e) => {
+        if (extraTimerRef.current) {
+          clearTimeout(extraTimerRef.current);
+          extraTimerRef.current = null;
+        }
+        extraRef.current?.updateAnchor({ event: e });
+        const timer = setTimeout(() => {
+          console.log("Showing popover", e.clientX, e.clientY, agg.id);
+          extraRef.current?.show();
+        }, 1000);
+        extraTimerRef.current = timer;
+      }}
+      onMouseMove={(e) => {
+        extraRef.current?.updateAnchor({ event: e });
+      }}
+      onMouseLeave={() => {
+        if (extraTimerRef.current) {
+          console.log("Clearing timeout");
+          clearTimeout(extraTimerRef.current);
+          extraTimerRef.current = null;
+          extraRef.current?.hide();
+        }
+      }}
     >
       {listToggle}
       <span className={cn("flex-1 text-center", agg?.owned && "text-red-500")}>
@@ -179,7 +223,23 @@ const Aggregate = ({
     <Fragment key={`gameaggregate_${agg.id}`}>
       <div className="hidden"></div>
       <div className="hidden"></div>
-      <div className="hidden"></div>
+      {agg.additionalInfo ? (
+        <QuickPopover
+          hideBehavior="manual"
+          calculateAnchor={({ x, y }, _, { main }) => {
+            const top =
+              y - (main[1] + 20) > 50 ? y - main[1] - 20 : y + main[1];
+            return [x - main[0] / 2, top];
+          }}
+          Actuator={<button className="hidden"></button>}
+          ref={extraRef}
+          className={cn("h-fit w-fit rounded-xl p-3")}
+        >
+          <div className="text-3xl">{agg.additionalInfo}</div>
+        </QuickPopover>
+      ) : (
+        <div className="hidden"></div>
+      )}
       {mode === "view" ? titleViewElement : titleEditElement}
       {open && (
         <SubGames
@@ -261,6 +321,7 @@ const GameEdit = ({
       parent_id: game.parent_id,
       region: editValues.region,
       title: editValues.title,
+      additionalInfo: game.additionalInfo,
     });
   };
   return (
@@ -446,6 +507,9 @@ const Game = ({
 }) => {
   const [mode, setMode] = useState<RowMode>("view");
 
+  const extraRef = useRef<QuickRef>(null);
+  const extraTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
   if (mode === "edit") {
     return (
       <Fragment>
@@ -469,7 +533,46 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.id,
         )}
+        onMouseEnter={(e) => {
+          if (extraTimerRef.current) {
+            clearTimeout(extraTimerRef.current);
+            extraTimerRef.current = null;
+          }
+          extraRef.current?.updateAnchor({ event: e });
+          const timer = setTimeout(() => {
+            extraRef.current?.show();
+          }, 1000);
+          extraTimerRef.current = timer;
+        }}
+        onMouseMove={(e) => {
+          extraRef.current?.updateAnchor({ event: e });
+        }}
+        onMouseLeave={() => {
+          if (extraTimerRef.current) {
+            console.log("Clearing timeout");
+            clearTimeout(extraTimerRef.current);
+            extraTimerRef.current = null;
+            extraRef.current?.hide();
+          }
+        }}
       >
+        {game.additionalInfo ? (
+          <QuickPopover
+            hideBehavior="manual"
+            calculateAnchor={({ x, y }, _, { main }) => {
+              const top =
+                y - (main[1] + 20) > 50 ? y - main[1] - 20 : y + main[1];
+              return [x - main[0] / 2, top];
+            }}
+            Actuator={<button className="hidden"></button>}
+            ref={extraRef}
+            className={cn("h-fit w-fit rounded-xl p-3")}
+          >
+            <div className="text-3xl">{game.additionalInfo}</div>
+          </QuickPopover>
+        ) : (
+          <div className="hidden"></div>
+        )}
         <div className="absolute left-2 flex gap-2">
           <div className="mr-auto flex gap-2">
             {game?.owned ? <OwnedIcon /> : <NotOwnedIcon />}

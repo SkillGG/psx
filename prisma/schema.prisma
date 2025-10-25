@@ -44,6 +44,8 @@ model Game {
 
     Library Library[]
 
+    additionalInfo String?
+
     parent_id String?
     parent    Game?   @relation("ParentSubgame", references: [id], fields: [parent_id])
     subgames  Game[]  @relation("ParentSubgame")

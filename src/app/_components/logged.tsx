@@ -30,6 +30,7 @@ export const LoggedUI = ({ user }: { user: User }) => {
             </button>
           }
           calculateAnchor={(_, { actuator }, { main }) => {
+            if (!actuator) return [0, 0];
             return [
               actuator.getBoundingClientRect().left - main[0] / 2,
               actuator.getBoundingClientRect().bottom,
