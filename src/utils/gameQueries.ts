@@ -277,6 +277,7 @@ export const createGameQuery = (
   const whereClause = buildWhereClause(search);
 
   console.log("Where caluse", whereClause);
+  console.log("User sort", userSort);
 
   const where = whereClause ? `where ${whereClause}` : "";
 
@@ -289,14 +290,14 @@ export const createGameQuery = (
     ? `(case when (l."userId" = $2) then 1 else 0 end) desc`
     : null;
 
-  const sortClause =
+  const sortClause = (includeOwner = false) =>
     userSort || ownershipSort
-      ? `order by ${[ownershipSort, userSort].filter(isNotNull).join(",\n")}`
+      ? `order by ${[includeOwner ? ownershipSort : null, userSort].filter(isNotNull).join(",\n")}`
       : null;
 
-  const subSortClause =
+  const subSortClause = (includeOwner = false) =>
     userSort || subOwnershipSort
-      ? `order by ${[subOwnershipSort, userSort].filter(isNotNull).join(",\n")}`
+      ? `order by ${[includeOwner ? subOwnershipSort : null, userSort].filter(isNotNull).join(",\n")}`
       : null;
 
   const childWhere = buildWhereClause(
@@ -320,7 +321,8 @@ export const createGameQuery = (
      *
      * $4+ - defined in {@link .varsOrder}
      */
-    uidQuery: `SELECT
+    uidQuery: `--UID Query With sorting
+SELECT
 g.*,
 ((c.has_children AND NOT c.has_unowned_child) OR c.direct_owned) AS owned
 FROM "Game" g
@@ -344,7 +346,7 @@ LEFT JOIN LATERAL (
   ) c
   ON true
 ${childWhere ? `where c.found_children or (${whereClause})` : where}
-${sortClause} 
+${sortClause(true)}
 LIMIT $2 OFFSET $3;`,
     /**
      * Full db query without userID ordering
@@ -356,29 +358,32 @@ LIMIT $2 OFFSET $3;`,
      *
      * $3+ - defined in {@link .varsOrder}
      */
-    nouidQuery: `Select *, false as owned from "Game" as g
+    nouidQuery: `--noUID Query
+select *, false as owned from "Game" as g
 ${where}
-${sortClause ?? ""}
+${sortClause(false) ?? ""}
 limit $1 offset $2;`,
     subgames: {
       /** Params:
        *
        * $1 - Array of gameIDs
        */
-      nouid: `select *, false as owned from "Game" as g
+      nouid: `--sub noUID Query
+select *, false as owned from "Game" as g
 where parent_id = ANY($1)
-${subSortClause ?? ""};`,
+${subSortClause(false) ?? ""};`,
       /** Params:
        *
        * $1 - Array of gameIDs
        *
        * $2 - userID
        */
-      uid: `select *, case when (l."userId" = $2) then true else false end as owned from "Game" as g
+      uid: `--sub UID Query
+select *, case when (l."userId" = $2) then true else false end as owned from "Game" as g
 left join "Library" as l
   on l."gameId" = g.id
 where parent_id = ANY($1)
-${subSortClause ?? ""};`,
+${subSortClause(true) ?? ""};`,
     },
   };
 };

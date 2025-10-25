@@ -240,48 +240,47 @@ export const gameRouter = createTRPCRouter({
           return { ok: true };
         }
 
-        const pid = parent_id.replace(/_agg/g, "");
-
-        const parent = await ctx.db.game.findFirst({
-          where: {
-            OR: [{ id: pid + "_agg" }, { id: pid }],
-          },
-        });
-
-        if (parent?.id.endsWith("_agg")) {
-          // we found the aggregate
+        if (parent_id.endsWith("_agg")) {
+          // provided aggregatror
           await ctx.db.game.update({
             where: {
-              id,
+              id: parent_id,
             },
             data: {
-              parent_id: parent.id,
+              subgames: {
+                connect: {
+                  id,
+                },
+              },
             },
           });
           return { ok: true };
         }
 
-        if (!parent) {
-          return {
-            err: `No parent or aggregate with ID ${pid} exists!`,
-          };
-        }
+        const kid = await ctx.db.game.findFirst({
+          where: { id },
+          include: {
+            parent: true,
+          },
+        });
+
+        if (!kid) return { err: `No game with ID ${id} exists!` };
 
         await ctx.db.game.upsert({
-          create: {
-            console: parent.console,
-            region: parent.region,
-            title: parent.title,
-            id: pid + "_agg",
-            parent_id: null,
-            parent: undefined,
-            subgames: { connect: [{ id: pid }, { id }] },
-          },
           update: {
             subgames: { connect: { id } },
           },
           where: {
-            id: pid + "_agg",
+            id: kid.parent?.id ?? kid.id + "_agg",
+          },
+          create: {
+            console: kid.console,
+            id: kid.id + "_agg",
+            region: kid.region,
+            title: kid.title,
+            subgames: {
+              connect: [{ id: kid.id }, { id }],
+            },
           },
         });
 
