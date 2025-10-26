@@ -15,12 +15,20 @@ enum Region {
     PAL
     NTSC
     NTSCJ
+    /**
+     * Only in aggregates
+     */
+    NA
 }
 
 enum Console {
     PS1
     PS2
     PSP
+    /**
+     * Only in aggregates
+     */
+    NA
 }
 
 enum Status {

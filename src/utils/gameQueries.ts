@@ -143,13 +143,17 @@ function formatCondition(alias?: string) {
     compare: GameQueryFilter["comparisonType"],
     varNum?: number,
     cast?: GameQueryFilter["castTo"],
+    or?: string,
+    valueOverride?: string,
   ): string {
     const valuePart = compare?.includes("null")
       ? ""
       : cast
         ? `CAST($${varNum} AS "${cast}")`
         : `$${varNum}`;
-    return `${alias ?? "g"}."${column}" ${compare} ${valuePart}`.trim();
+    const thisQ =
+      `${alias ?? "g"}."${column}" ${compare} ${valueOverride ?? valuePart}`.trim();
+    return or ? `(${thisQ} or ${or})` : thisQ;
   };
 }
 
@@ -159,17 +163,15 @@ const buildWhereClause = (s: GameQuerySearch, alias?: string): string => {
 
   const format = formatCondition(alias);
 
-  if (s.id?.on) {
+  if (s.id?.on)
     idOrTitle.push(format("id", s.id.comparisonType ?? "LIKE", s.id.varNum));
-  }
-  if (s.title?.on) {
+
+  if (s.title?.on)
     idOrTitle.push(
       format("title", s.title.comparisonType ?? "LIKE", s.title.varNum),
     );
-  }
-  if (idOrTitle.length > 0) {
-    conditions.push(`(${idOrTitle.join(" OR ")})`);
-  }
+  if (idOrTitle.length > 0) conditions.push(`(${idOrTitle.join(" OR ")})`);
+
   if (s.console?.on) {
     conditions.push(
       format(
@@ -177,6 +179,14 @@ const buildWhereClause = (s: GameQuerySearch, alias?: string): string => {
         s.console.comparisonType ?? "=",
         s.console.varNum,
         s.console.castTo ?? "Console",
+        format(
+          "console",
+          "=",
+          undefined,
+          undefined,
+          undefined,
+          `CAST('NA' AS "Console")`,
+        ),
       ),
     );
   }
@@ -187,6 +197,14 @@ const buildWhereClause = (s: GameQuerySearch, alias?: string): string => {
         s.region.comparisonType ?? "=",
         s.region.varNum,
         s.region.castTo ?? "Region",
+        format(
+          "region",
+          "=",
+          undefined,
+          undefined,
+          undefined,
+          `CAST('NA' AS "Region")`,
+        ),
       ),
     );
   }

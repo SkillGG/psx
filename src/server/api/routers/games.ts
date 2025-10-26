@@ -5,8 +5,10 @@ import { adminProcedure, userProcedure } from "../auth";
 import { queryGames } from "~/utils/gameQueries";
 import { isNotNull } from "~/utils/utils";
 
-const ConsoleType = z.enum(["PS1", "PS2", "PSP"]);
-const RegionType = z.enum(["PAL", "NTSC", "NTSCJ"]);
+import chalk from "chalk";
+
+const ConsoleType = z.enum(["PS1", "PS2", "PSP", "NA"]);
+const RegionType = z.enum(["PAL", "NTSC", "NTSCJ", "NA"]);
 
 const GameData = z.object({
   id: z.string(),
@@ -69,6 +71,11 @@ const clearOrphanedParents = async (db: PrismaClient) => {
   console.log("Orphaned parents found!", orphanedParents);
 
   if (orphanedParents.length) {
+    console.log(
+      "Clearing orphaned parents!",
+      chalk.red(orphanedParents.map((q) => q.id).join(chalk.white(", "))),
+    );
+
     // remove all parent relations to orphaned parent
     await db.game.updateMany({
       where: {
@@ -209,6 +216,59 @@ export const gameRouter = createTRPCRouter({
 
       return game;
     }),
+  group: adminProcedure
+    .input(
+      z.object({
+        games: z.array(z.string()),
+        title: z.string(),
+        aggId: z.string(),
+      }),
+    )
+    .mutation(
+      async ({
+        ctx: { db },
+        input: { aggId, games, title },
+      }): Promise<{ err: string } | { ok: true }> => {
+        // check if all games are single
+
+        const nonSingleGame = await db.game.findFirst({
+          where: {
+            AND: [
+              {
+                NOT: {
+                  parent_id: null,
+                },
+              },
+              {
+                id: {
+                  in: games,
+                },
+              },
+            ],
+          },
+        });
+
+        const newID = aggId.endsWith("_agg") ? aggId : aggId + "_agg";
+
+        if (nonSingleGame) {
+          return {
+            err: "There are games in the list that already have a parent!",
+          };
+        }
+
+        await db.game.create({
+          data: {
+            console: "NA",
+            id: newID,
+            region: "NA",
+            title,
+            subgames: { connect: games.map((q) => ({ id: q })) },
+          },
+        });
+
+        return { ok: true };
+      },
+    ),
   reparent: adminProcedure
     .input(z.object({ id: z.string(), parent_id: z.string().nullable() }))
     .mutation(
@@ -223,8 +283,22 @@ export const gameRouter = createTRPCRouter({
           return { err: "Game with given ID does not exist!" };
         }
 
+        console.log(
+          chalk.blue(`Reparenting `),
+          id,
+          chalk.blue(" to be under: "),
+          parent_id,
+        );
+
         if (!parent_id) {
           // remove parent from id
+
+          console.log(
+            chalk.yellow("Setting parent_id of"),
+            game.id,
+            chalk.yellow("to"),
+            chalk.red(" null"),
+          );
 
           if (!game.parent_id)
             return { err: `Game with ID ${id} does not have a parent!` };
@@ -244,6 +318,10 @@ export const gameRouter = createTRPCRouter({
         }
 
         if (parent_id.endsWith("_agg")) {
+          console.log(
+            chalk.yellow("Supplied parent_id is an aggregator!"),
+            "Updating it to add a new child",
+          );
           // provided aggregatror
           await ctx.db.game.update({
             where: {
@@ -260,8 +338,14 @@ export const gameRouter = createTRPCRouter({
           return { ok: true };
         }
 
+        console.log(
+          chalk.yellow(
+            "Supplied parent_id is not an aggregator! Getting the game values",
+          ),
+        );
+
         const kid = await ctx.db.game.findFirst({
-          where: { id },
+          where: { id: parent_id },
           include: {
             parent: true,
           },
@@ -269,25 +353,37 @@ export const gameRouter = createTRPCRouter({
 
         if (!kid) return { err: `No game with ID ${id} exists!` };
 
-        await ctx.db.game.upsert({
-          update: {
-            subgames: { connect: { id } },
-          },
-          where: {
-            id: kid.parent?.id ?? kid.id + "_agg",
-          },
-          create: {
-            console: kid.console,
-            id: kid.id + "_agg",
-            region: kid.region,
-            title: kid.title,
-            subgames: {
-              connect: [{ id: kid.id }, { id }],
+        if (kid.parent) {
+          console.log(chalk.yellow("There is a parent!"));
+
+          await ctx.db.game.update({
+            where: {
+              id: kid.parent.id,
             },
-          },
-        });
+            data: {
+              subgames: { connect: { id } },
+            },
+          });
+        } else {
+          console.log(chalk.red("There is no parent! Creating one!"));
+          await ctx.db.game.create({
+            data: {
+              console: "NA",
+              id: kid.id + "_agg",
+              region: "NA",
+              title: kid.title,
+              subgames: {
+                connect: [{ id }, { id: kid.id }],
+              },
+            },
+          });
+        }
 
         return { ok: true };
       },
     ),
+  clearDB: adminProcedure.mutation(async ({ ctx: { db } }) => {
+    await db.game.deleteMany();
+    return true;
+  }),
 });

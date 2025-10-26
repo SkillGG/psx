@@ -194,8 +194,8 @@ const GameObject = z
       },
     ),
     console: z.enum(["PSP", "PS1", "PS2"]).optional(),
-    parent_id: z.string().optional(),
-    extra: z.string().optional(),
+    parent_id: z.string().nullable().optional(),
+    extra: z.string().optional().nullable(),
   })
   .and(z.object({ title: z.string() }).or(z.object({ name: z.string() })));
 

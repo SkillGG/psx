@@ -1,13 +1,19 @@
 "use client";
 
 import type { ClassValue } from "clsx";
-import { Fragment, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import type { GameWithOwn, GameWithSubs } from "~/utils/gameQueries";
 import { cn } from "~/utils/utils";
 import { CaretDown, CaretUp, NotOwnedIcon, OwnedIcon } from "../icon";
 import { isSafeID } from "./import/parse";
 import type { Console, Region } from "@prisma/client";
-import { GAME_ROW_STYLES } from ".";
+import { GAME_ROW_STYLES, type SelectState } from ".";
 import { QuickPopover, type QuickRef } from "../quickPopover";
 
 type GameColumn = keyof Pick<
@@ -19,7 +25,7 @@ type RowMode = "view" | "edit";
 
 type EditFunction = (p: GameWithOwn, n: GameWithOwn) => void;
 type ReparentFuntion = (p: GameWithOwn, n: string | null) => void;
-type ToggleSelectedFunvtion = (id: string, state: boolean) => void;
+type ToggleSelectedFunvtion = (id: string, state: SelectState) => void;
 
 const Aggregate = ({
   agg,
@@ -105,7 +111,7 @@ const Aggregate = ({
             checked={agg.subgames.every((sg) => selected.includes(sg.id))}
             onChange={() => {
               for (const { id, owned } of agg.subgames)
-                toggleSelected(id, !!owned);
+                toggleSelected(id, { owned: !!owned, parent: agg.id });
             }}
           />
         )}
@@ -116,6 +122,30 @@ const Aggregate = ({
   const extraRef = useRef<QuickRef>(null);
   const extraTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
+  const mouseProps = {
+    onMouseEnter: (e: MouseEvent) => {
+      if (extraTimerRef.current) {
+        clearTimeout(extraTimerRef.current);
+        extraTimerRef.current = null;
+      }
+      extraRef.current?.updateAnchor({ event: e });
+      const timer = setTimeout(() => {
+        extraRef.current?.show();
+      }, 1000);
+      extraTimerRef.current = timer;
+    },
+    onMouseMove: (e: MouseEvent) => {
+      extraRef.current?.updateAnchor({ event: e });
+    },
+    onMouseLeave: () => {
+      if (extraTimerRef.current) {
+        clearTimeout(extraTimerRef.current);
+        extraTimerRef.current = null;
+        extraRef.current?.hide();
+      }
+    },
+  } as const;
+
   const titleEditElement = (
     <div
       className={cn(
@@ -124,22 +154,7 @@ const Aggregate = ({
         classNames?.edit?.title,
         "not-lg:col-span-3 not-lg:row-span-1",
       )}
-      onMouseEnter={() => {
-        if (extraTimerRef.current) {
-          clearTimeout(extraTimerRef.current);
-          extraTimerRef.current = null;
-        }
-        const timer = setTimeout(() => {
-          console.log("Showing popover");
-        });
-        extraTimerRef.current = timer;
-      }}
-      onMouseLeave={() => {
-        if (extraTimerRef.current) {
-          clearTimeout(extraTimerRef.current);
-          extraTimerRef.current = null;
-        }
-      }}
+      {...mouseProps}
     >
       {listToggle}
       <input
@@ -178,29 +193,7 @@ const Aggregate = ({
         classNames?.view?.title,
         "not-lg:col-span-3 not-lg:row-span-1",
       )}
-      onMouseEnter={(e) => {
-        if (extraTimerRef.current) {
-          clearTimeout(extraTimerRef.current);
-          extraTimerRef.current = null;
-        }
-        extraRef.current?.updateAnchor({ event: e });
-        const timer = setTimeout(() => {
-          console.log("Showing popover", e.clientX, e.clientY, agg.id);
-          extraRef.current?.show();
-        }, 1000);
-        extraTimerRef.current = timer;
-      }}
-      onMouseMove={(e) => {
-        extraRef.current?.updateAnchor({ event: e });
-      }}
-      onMouseLeave={() => {
-        if (extraTimerRef.current) {
-          console.log("Clearing timeout");
-          clearTimeout(extraTimerRef.current);
-          extraTimerRef.current = null;
-          extraRef.current?.hide();
-        }
-      }}
+      {...mouseProps}
     >
       {listToggle}
       <span className={cn("flex-1 text-center", agg?.owned && "text-red-500")}>
@@ -549,7 +542,6 @@ const Game = ({
         }}
         onMouseLeave={() => {
           if (extraTimerRef.current) {
-            console.log("Clearing timeout");
             clearTimeout(extraTimerRef.current);
             extraTimerRef.current = null;
             extraRef.current?.hide();
@@ -575,13 +567,16 @@ const Game = ({
         )}
         <div className="absolute left-2 flex gap-2">
           <div className="mr-auto flex gap-2">
-            {game?.owned ? <OwnedIcon /> : <NotOwnedIcon />}
+            {toggleable && (game?.owned ? <OwnedIcon /> : <NotOwnedIcon />)}
             {toggleable && (
               <input
                 type="checkbox"
                 checked={selected.includes(game.id)}
                 onChange={() => {
-                  toggleSelected(game.id, !!game.owned);
+                  toggleSelected(game.id, {
+                    owned: !!game.owned,
+                    parent: game.parent_id,
+                  });
                 }}
               />
             )}

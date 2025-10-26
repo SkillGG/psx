@@ -10,7 +10,7 @@ import { PopoverDialog, type PopoverRef } from "../popoverDialog";
 import Link from "next/link";
 import type { Game, Region } from "@prisma/client";
 import type { GameQuerySort } from "~/utils/gameQueries";
-import { NotOwnedIcon, OwnedIcon } from "../icon";
+import { LinkIcon, NotOwnedIcon, OwnedIcon } from "../icon";
 
 const DEFAULT_VIEW_STYLES = {
   id: cn(
@@ -82,6 +82,11 @@ export const DEFAULT_SORT: GameQuerySort = {
 const TABLE_DIMENSIONS =
   "grid-cols-[2fr_1fr_1fr_5fr] grid-flow-dense not-lg:grid-cols-[2fr_2fr_5fr] lg:grid-cols-[1.5fr_1fr_1fr_5.5fr]";
 
+export type SelectState = {
+  owned: boolean;
+  parent: string | null;
+};
+
 export const GameList = ({
   userID,
   editable,
@@ -100,7 +105,7 @@ export const GameList = ({
     page: 0,
   });
 
-  const util = api.useUtils();
+  const utils = api.useUtils();
 
   const { isFetching, data: games } = api.games.list.useQuery({
     userID: userID,
@@ -116,12 +121,15 @@ export const GameList = ({
   const { mutateAsync: reparent, isPending: isReparenting } =
     api.games.reparent.useMutation();
 
-  const isMutating = isEditing || isReparenting;
+  const { mutateAsync: clearDB, isPending: isRemovingDB } =
+    api.games.clearDB.useMutation();
+
+  const { mutateAsync: groupGames, isPending: isGrouping } =
+    api.games.group.useMutation();
+
+  const isMutating = isEditing || isReparenting || isGrouping;
 
   const popoverRef = useRef<PopoverRef>(null);
-
-  console.log("Game#", games?.length);
-  console.log("Searching with filters", filters);
 
   const onGameRowEdit = async (prev: Game, g: Game) => {
     if (prev.parent_id !== g.parent_id) {
@@ -129,13 +137,31 @@ export const GameList = ({
     } else {
       await editGameData({ id: prev.id, data: g });
     }
-    await util.games.invalidate();
+    await utils.games.invalidate();
   };
 
-  const [selected, setSelected] = useState<[string, boolean][]>([]);
+  const [selected, setSelected] = useState<[string, SelectState][]>([]);
 
   const toggleOwnership = api.games.markOwnership.useMutation();
   const removeGames = api.games.removeGames.useMutation();
+
+  const gamesNum =
+    games?.reduce(
+      (p, n) => p + (n.subgames?.length ? n.subgames.length : 1),
+      0,
+    ) ?? 0;
+
+  const selectedStats = {
+    areSubs: selected.some(([_, state]) => state.parent),
+    areSingle: selected.some(([_, state]) => !state.parent),
+    parents_ids: [
+      ...new Set(selected.map(([_, state]) => state.parent)),
+    ].filter(isNotNull),
+    areOwned: selected.some(([_, state]) => !!state.owned),
+    areNotOwned: selected.some(([_, state]) => !state.owned),
+  };
+
+  console.log(selectedStats);
 
   return (
     <div className="pt-2 text-(--label-text)">
@@ -207,6 +233,24 @@ export const GameList = ({
                   Export
                 </Link>
               </div>
+
+              <div>
+                <button
+                  className={cn(
+                    "justify-self-start rounded-xl border-1 px-2",
+                    "hover:backdrop-brightness-(--bg-hover-brightness)",
+                    "focus:backdrop-brightness-(--bg-hover-brightness)",
+                    "hover:cursor-pointer",
+                  )}
+                  onClick={() => {
+                    void clearDB().then(() => {
+                      void utils.games.invalidate();
+                    });
+                  }}
+                >
+                  {isRemovingDB ? "..." : "Clear db"}
+                </button>
+              </div>
             </>
           )}
           {listDescriptor}
@@ -226,58 +270,68 @@ export const GameList = ({
               id: (
                 <>
                   <div className="absolute left-2 mr-4 flex items-center gap-2">
-                    <input
-                      className="cursor-pointer"
-                      type={"checkbox"}
-                      checked={
-                        games
-                          ?.map((g) => [...g.subgames.map((z) => z.id), g.id])
-                          .flat(2)
-                          .every((id) =>
-                            selected.map((q) => q[0]).includes(id),
-                          ) ?? false
-                      }
-                      onChange={({ currentTarget: { checked } }) => {
-                        console.log("Clicked toggle all", checked);
-                        if (!checked) {
-                          setSelected([]);
-                        } else {
-                          const allGames: [string, boolean][] = [
-                            ...(games?.map((q) => q.subgames) ?? []),
-                            ...(games ?? []),
-                          ]
-                            .flat(20)
-                            .filter(isNotNull)
-                            .map((q) => [q.id, !!q.owned]);
-                          setSelected(allGames);
+                    {toggleable && (
+                      <input
+                        className="cursor-pointer"
+                        type={"checkbox"}
+                        checked={
+                          games
+                            ?.map((g) => [...g.subgames.map((z) => z.id), g.id])
+                            .flat(2)
+                            .every((id) =>
+                              selected.map((q) => q[0]).includes(id),
+                            ) ?? false
                         }
-                      }}
-                    />
-                    {selected.some(([_, state]) => !state) && (
+                        onChange={({ currentTarget: { checked } }) => {
+                          console.log("Clicked toggle all", checked);
+                          if (!checked) {
+                            setSelected([]);
+                          } else {
+                            const allGames: [string, SelectState][] = [
+                              ...(games?.map((q) => q.subgames) ?? []),
+                              ...(games ?? []),
+                            ]
+                              .flat(20)
+                              .filter(isNotNull)
+                              .map<[string, SelectState]>((q) => [
+                                q.id,
+                                {
+                                  owned: !!q.owned,
+                                  parent: "parent_id" in q ? q.parent_id : null,
+                                },
+                              ]);
+                            setSelected(allGames);
+                          }
+                        }}
+                      />
+                    )}
+                    {toggleable && selectedStats.areNotOwned && (
                       <button
                         className="cursor-pointer text-sm"
+                        title="Mark as owned"
                         onClick={async () => {
                           await toggleOwnership.mutateAsync({
                             ids: selected.map((q) => q[0]),
                             ownership: true,
                           });
                           setSelected([]);
-                          await util.games.invalidate();
+                          await utils.games.invalidate();
                         }}
                       >
                         <OwnedIcon />
                       </button>
                     )}
-                    {selected.some(([_, state]) => !!state) && (
+                    {toggleable && selectedStats.areOwned && (
                       <button
                         className="cursor-pointer text-sm"
+                        title="Mark as not owned"
                         onClick={async () => {
                           await toggleOwnership.mutateAsync({
                             ids: selected.map((q) => q[0]),
                             ownership: false,
                           });
                           setSelected([]);
-                          await util.games.invalidate();
+                          await utils.games.invalidate();
                         }}
                       >
                         <NotOwnedIcon />
@@ -286,18 +340,57 @@ export const GameList = ({
                   </div>
                   ID
                   <div className="absolute right-2 ml-4 flex items-center gap-2">
-                    {selected.length > 0 && (
+                    {editable && selected.length > 0 && (
                       <button
+                        title="Remove from the DB"
                         className="cursor-pointer text-sm"
                         onClick={async () => {
                           await removeGames.mutateAsync(
                             selected.map(([id]) => id),
                           );
-                          await util.games.invalidate();
+                          await utils.games.invalidate();
                         }}
                       >
                         <NotOwnedIcon />
                       </button>
+                    )}
+                    {editable &&
+                      selectedStats.areSingle &&
+                      selectedStats.areSubs &&
+                      selectedStats.parents_ids.length === 1 && (
+                        <button
+                          onClick={async () => {
+                            const pID = selectedStats.parents_ids[0];
+                            if (!pID) return;
+                            const title = prompt("Title for the new grouping!");
+                            if (!title) return;
+                            await groupGames({
+                              games: selected
+                                .map(([id, state]) =>
+                                  state.parent ? null : id,
+                                )
+                                .filter(isNotNull),
+                              aggId: pID,
+                              title,
+                            });
+                            void utils.games.invalidate();
+                          }}
+                        >
+                          <LinkIcon
+                            classNames={{
+                              svg: "w-4 h-4",
+                              path: "stroke-green-500",
+                            }}
+                          />
+                        </button>
+                      )}
+                    {toggleable && games && (
+                      <span className="text-sm">
+                        {selected.length}/{gamesNum}
+                      </span>
+                    )}
+                    {!toggleable && games && (
+                      <span className="text-sm">{gamesNum}</span>
                     )}
                   </div>
                 </>
