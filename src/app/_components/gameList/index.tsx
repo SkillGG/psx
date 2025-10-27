@@ -10,7 +10,7 @@ import { PopoverDialog, type PopoverRef } from "../popoverDialog";
 import Link from "next/link";
 import type { Game, Region } from "@prisma/client";
 import type { GameQuerySort } from "~/utils/gameQueries";
-import { LinkIcon, NotOwnedIcon, OwnedIcon } from "../icon";
+import { LinkIcon, NotOwnedIcon, OwnedIcon, UnlinkIcon } from "../icon";
 
 const DEFAULT_VIEW_STYLES = {
   id: cn(
@@ -21,6 +21,10 @@ const DEFAULT_VIEW_STYLES = {
   region: cn("not-lg:col-2"),
   console: cn("not-lg:col-2 not-lg:border-b-1"),
 } as const;
+
+const SelectedControl = () => {
+  return <></>;
+};
 
 export const GAME_ROW_STYLES = (region?: Region) => {
   return {
@@ -127,7 +131,11 @@ export const GameList = ({
   const { mutateAsync: groupGames, isPending: isGrouping } =
     api.games.group.useMutation();
 
-  const isMutating = isEditing || isReparenting || isGrouping;
+  const { mutateAsync: removeFromGroup, isPending: isRemovingFromGroup } =
+    api.games.removeFromGroup.useMutation();
+
+  const isMutating =
+    isEditing || isReparenting || isGrouping || isRemovingFromGroup;
 
   const popoverRef = useRef<PopoverRef>(null);
 
@@ -359,11 +367,12 @@ export const GameList = ({
                       selectedStats.areSubs &&
                       selectedStats.parents_ids.length === 1 && (
                         <button
+                          className="cursor-pointer"
+                          title={"Move seelected children to a parent"}
                           onClick={async () => {
+                            // link to an existing aggregate
                             const pID = selectedStats.parents_ids[0];
                             if (!pID) return;
-                            const title = prompt("Title for the new grouping!");
-                            if (!title) return;
                             await groupGames({
                               games: selected
                                 .map(([id, state]) =>
@@ -371,16 +380,68 @@ export const GameList = ({
                                 )
                                 .filter(isNotNull),
                               aggId: pID,
-                              title,
                             });
                             void utils.games.invalidate();
+                            setSelected([]);
                           }}
                         >
                           <LinkIcon
                             classNames={{
-                              svg: "w-4 h-4",
-                              path: "stroke-green-500",
+                              svg: "w-4 h-4 stroke-green-500",
                             }}
+                          />
+                        </button>
+                      )}
+                    {editable &&
+                      selectedStats.areSingle &&
+                      !selectedStats.areSubs &&
+                      selected.length > 1 && (
+                        <button
+                          title={"Create an aggregate for selected items"}
+                          className="cursor-pointer"
+                          onClick={async () => {
+                            // link to an existing aggregate
+                            const gID = prompt("Create ID for an aggregate");
+                            if (!gID) return;
+                            const groupID = gID.endsWith("_agg")
+                              ? gID
+                              : `${gID}_agg`;
+                            const title = prompt("Create group title!");
+                            if (!title) return;
+                            await groupGames({
+                              games: selected
+                                .map(([id, state]) =>
+                                  state.parent ? null : id,
+                                )
+                                .filter(isNotNull),
+                              groupID,
+                              title,
+                            });
+                            void utils.games.invalidate();
+                            setSelected([]);
+                          }}
+                        >
+                          <LinkIcon
+                            classNames={{
+                              svg: "w-4 h-4 rotate-90 stroke-orange-500",
+                            }}
+                          />
+                        </button>
+                      )}
+                    {editable &&
+                      !selectedStats.areSingle &&
+                      selectedStats.areSubs &&
+                      selectedStats.parents_ids.length === 1 && (
+                        <button
+                          className="cursor-pointer"
+                          onClick={async () => {
+                            await removeFromGroup(selected.map(([id]) => id));
+                            void utils.games.invalidate();
+                            setSelected([]);
+                          }}
+                        >
+                          <UnlinkIcon
+                            classNames={{ svg: "w-4 h-4 stroke-red-500" }}
                           />
                         </button>
                       )}

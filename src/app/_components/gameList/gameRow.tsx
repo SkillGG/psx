@@ -187,12 +187,15 @@ const Aggregate = ({
   const titleViewElement = (
     <div
       className={cn(
-        "relative col-span-4 flex text-center",
+        "relative col-span-4 flex cursor-pointer text-center",
         agg?.owned && "font-extrabold underline",
         classNames?.view?.all,
         classNames?.view?.title,
         "not-lg:col-span-3 not-lg:row-span-1",
       )}
+      onClick={() => {
+        setOpen((p) => !p);
+      }}
       {...mouseProps}
     >
       {listToggle}
@@ -202,8 +205,9 @@ const Aggregate = ({
       {editable && (
         <button
           className="h-12 basis-16 cursor-pointer px-2 py-1"
-          onClick={() => {
+          onClick={(e) => {
             setMode(mode === "view" ? "edit" : "view");
+            e.stopPropagation();
           }}
         >
           Edit
