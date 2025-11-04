@@ -97,6 +97,7 @@ const clearOrphanedParents = async (db: PrismaClient) => {
         parent_id: null,
       },
     });
+
     // delete orphaned parent
     await db.game.deleteMany({
       where: {

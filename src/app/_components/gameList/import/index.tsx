@@ -97,7 +97,7 @@ export const ImportJSONDialog = ({
           <button
             type="button"
             className={cn(
-              "cursor-pointer rounded-lg border-1 border-(--complement-300)",
+              "cursor-pointer rounded-lg border border-(--complement-300)",
               "px-2 py-1 hover:border-(--complement-400)",
               "hover:backdrop-brightness-(--bg-hover-brightness)",
               "text-(--complement-500)",
@@ -138,7 +138,7 @@ export const ImportJSONDialog = ({
               <button
                 type="button"
                 className={cn(
-                  "rounded-lg border-1 border-(--button-submit-border) bg-(--button-submit-bg) px-2 py-1 text-(--button-submit-text)",
+                  "rounded-lg border border-(--button-submit-border) bg-(--button-submit-bg) px-2 py-1 text-(--button-submit-text)",
                   "cursor-pointer hover:brightness-(--bg-hover-brightness)",
                 )}
                 onClick={(e) => {
@@ -150,7 +150,7 @@ export const ImportJSONDialog = ({
               <button
                 type="button"
                 className={cn(
-                  "rounded-lg border-1 border-(--button-remove-border) bg-(--button-remove-bg) px-2 py-1 text-(--button-remove-text)",
+                  "rounded-lg border border-(--button-remove-border) bg-(--button-remove-bg) px-2 py-1 text-(--button-remove-text)",
                   "cursor-pointer hover:brightness-(--bg-hover-brightness)",
                 )}
                 onClick={() => {
@@ -192,7 +192,7 @@ export const ImportJSONDialog = ({
                               setGameData((p) => (!p ? p : ignore.resolve(p)));
                             });
                           }}
-                          className="cursor-pointer rounded-xl border-1 px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
+                          className="cursor-pointer rounded-xl border px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
                         >
                           Ignore non-solvable
                         </button>
@@ -207,7 +207,7 @@ export const ImportJSONDialog = ({
                               setGameData((p) => (!p ? p : ignore.resolve(p)));
                             });
                           }}
-                          className="cursor-pointer rounded-xl border-1 px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
+                          className="cursor-pointer rounded-xl border px-2 py-1 hover:backdrop-brightness-(--bg-hover-brightness)"
                         >
                           Ignore all
                         </button>
@@ -219,7 +219,7 @@ export const ImportJSONDialog = ({
                       id={warn.data.key}
                       key={warn.data.key}
                       className={cn(
-                        "flex-1 rounded-xl border-1 border-(--notice-600) bg-(--notice-500)/10",
+                        "flex-1 rounded-xl border border-(--notice-600) bg-(--notice-500)/10",
                         "relative px-2 py-1 pb-4 text-center text-nowrap text-(--notice-500)",
                       )}
                     >
@@ -243,7 +243,7 @@ export const ImportJSONDialog = ({
                             {warn.potentialFixes.map((fix) => {
                               return (
                                 <button
-                                  className="cursor-pointer rounded-xl border-1 border-green-500 px-2 py-1 text-green-500 hover:backdrop-brightness-(--bg-hover-brightness)"
+                                  className="cursor-pointer rounded-xl border border-green-500 px-2 py-1 text-green-500 hover:backdrop-brightness-(--bg-hover-brightness)"
                                   key={fix.label}
                                   onClick={() => {
                                     const nGD = fix.resolve(gameData);
@@ -269,7 +269,7 @@ export const ImportJSONDialog = ({
                       key={data.key}
                       id={data.key}
                       className={cn(
-                        "flex-1 basis-[fit-content] rounded-xl border-1 border-(--info-600) bg-(--info-500)/10",
+                        "flex-1 basis-[fit-content] rounded-xl border border-(--info-600) bg-(--info-500)/10",
                         "block cursor-pointer px-2 py-1 text-center text-(--info-500)",
                         "disabled:cursor-default",
                         deselected.includes(data.key) &&
@@ -331,7 +331,7 @@ export const ImportJSONDialog = ({
                 </>
               )}
               {isUploading && (
-                <div className="relative mx-5 min-w-64 overflow-hidden rounded-full border-1 border-(--regular-border) px-2">
+                <div className="relative mx-5 min-w-64 overflow-hidden rounded-full border border-(--regular-border) px-2">
                   <div
                     className="rouned-full absolute top-0 left-0 h-full bg-green-500/50"
                     style={{
@@ -350,7 +350,7 @@ export const ImportJSONDialog = ({
               <button
                 className={cn(
                   "w-full rounded-xl bg-(--button-submit-bg)/50 text-(--button-submit-text)",
-                  "cursor-pointer border-1 border-(--button-submit-bg) hover:brightness-(--bg-hover-brightness)",
+                  "cursor-pointer border border-(--button-submit-bg) hover:brightness-(--bg-hover-brightness)",
                   "disabled:bg-(--button-muted-bg)/50 disabled:text-(--button-muted-text)",
                   "disabled:cursor-not-allowed disabled:border-(--button-muted-bg) disabled:hover:brightness-100",
                 )}
@@ -370,7 +370,7 @@ export const ImportJSONDialog = ({
               <button
                 className={cn(
                   "basis-[30%] cursor-pointer rounded-xl",
-                  "border-1 border-(--button-remove-bg) bg-(--button-remove-bg)/50 text-(--button-remove-text)",
+                  "border border-(--button-remove-bg) bg-(--button-remove-bg)/50 text-(--button-remove-text)",
                   "hover:brightness-(--bg-hover-brightness)",
                 )}
                 type="button"

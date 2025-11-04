@@ -60,7 +60,7 @@ export const SearchBar = () => {
         onChange={(e) => setSearch(e.currentTarget.value)}
         value={search}
         placeholder="User search"
-        className="border-b-1 border-dotted px-2"
+        className="border-b border-dotted px-2"
         onClick={() => searchResults.data && showPopover()}
       />
       <div
@@ -80,7 +80,7 @@ export const SearchBar = () => {
               {searchResults.data.map(({ id, nick }) => (
                 <li
                   key={id}
-                  className="w-full border-b-1 border-(--regular-border) bg-(--dialog-bg) last:border-none even:brightness-[150%]"
+                  className="w-full border-b border-(--regular-border) bg-(--dialog-bg) last:border-none even:brightness-150"
                 >
                   <Link
                     href={`/profile/${id}`}

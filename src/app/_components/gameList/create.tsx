@@ -125,7 +125,7 @@ export const NewGameCreationForm = ({
         <button
           type="submit"
           className={cn(
-            "cursor-pointer rounded-lg border-1 border-(--button-submit-bg)",
+            "cursor-pointer rounded-lg border border-(--button-submit-bg)",
             "px-2 py-1 hover:border-(--button-submit-hover-bg)",
             "hover:backdrop-brightness-(--bg-hover-brightness)",
             "text-(--button-submit-nobg-text)",
@@ -140,7 +140,7 @@ export const NewGameCreationForm = ({
           }}
           type="button"
           className={cn(
-            "cursor-pointer rounded-lg border-1 border-(--button-remove-bg)",
+            "cursor-pointer rounded-lg border border-(--button-remove-bg)",
             "px-2 py-1 hover:border-(--button-remove-hover-bg)",
             "text-(--button-remove-nobg-text)",
             "hover:backdrop-brightness-(--bg-hover-brightness)",

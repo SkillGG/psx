@@ -37,7 +37,7 @@ export const LoggedUI = ({ user }: { user: User }) => {
             ];
           }}
           className={cn(
-            "border-1 border-(--complement-300) bg-(--dialog-bg)",
+            "border border-(--complement-300) bg-(--dialog-bg)",
             "rounded-xl p-0 text-(--label-text)",
           )}
         >

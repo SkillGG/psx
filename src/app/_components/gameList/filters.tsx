@@ -50,7 +50,7 @@ const Filter = <T extends InputHTMLAttributes<HTMLInputElement>["value"]>({
                 key={`${label}_${q[0]}`}
                 htmlFor={`${label}_${q[0]}`}
                 className={cn(
-                  "rounded-xl border-1 px-2 py-1",
+                  "rounded-xl border px-2 py-1",
                   "has-checked:border-(--complement-500)",
                   "hover:backdrop-brightness-(--bg-hover-brightness)",
                   "cursor-pointer",
@@ -83,7 +83,7 @@ const Filter = <T extends InputHTMLAttributes<HTMLInputElement>["value"]>({
               onChange={(e) => {
                 filter.onChange(`%${e.currentTarget.value}%`);
               }}
-              className={cn("border-b-1", filter.className)}
+              className={cn("border-b", filter.className)}
             />
           </>
         )}
@@ -116,7 +116,7 @@ const SortPicker = ({
         <button
           type="button"
           className={cn(
-            "block cursor-pointer rounded-xl border-1 px-2 py-1",
+            "block cursor-pointer rounded-xl border px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
             sort.ownership && "border-(--button-submit-bg)",
             !sort.ownership && "border-(--neutral-500)",
@@ -133,7 +133,7 @@ const SortPicker = ({
         <button
           type="button"
           className={cn(
-            "block cursor-pointer rounded-xl border-1 px-2 py-1",
+            "block cursor-pointer rounded-xl border px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
             sort.columns.id?.sort && "border-(--button-submit-bg)",
             !sort.columns.id?.sort && "border-(--neutral-500)",
@@ -159,7 +159,7 @@ const SortPicker = ({
         <button
           type="button"
           className={cn(
-            "block cursor-pointer rounded-xl border-1 px-2 py-1",
+            "block cursor-pointer rounded-xl border px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
             sort.columns.title?.sort && "border-(--button-submit-bg)",
             !sort.columns.title?.sort && "border-(--neutral-500)",
@@ -185,7 +185,7 @@ const SortPicker = ({
         <button
           type="button"
           className={cn(
-            "block cursor-pointer rounded-xl border-1 px-2 py-1",
+            "block cursor-pointer rounded-xl border px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
             sort.columns.console?.sort && "border-(--button-submit-bg)",
             !sort.columns.console?.sort && "border-(--neutral-500)",
@@ -211,7 +211,7 @@ const SortPicker = ({
         <button
           type="button"
           className={cn(
-            "block cursor-pointer rounded-xl border-1 px-2 py-1",
+            "block cursor-pointer rounded-xl border px-2 py-1",
             "text-center whitespace-nowrap hover:backdrop-brightness-(--bg-hover-brightness)",
             sort.columns.region?.sort && "border-(--button-submit-bg)",
             !sort.columns.region?.sort && "border-(--neutral-500)",
@@ -427,7 +427,7 @@ export const FiltersDialog = ({
           <button
             type="submit"
             className={cn(
-              "w-full cursor-pointer border-1",
+              "w-full cursor-pointer border",
               "border-(--button-submit-bg) px-2 py-1",
               "text-(--button-submit-nobg-text)",
               "hover:backdrop-brightness-(--bg-hover-brightness)",
@@ -438,7 +438,7 @@ export const FiltersDialog = ({
           <button
             type="button"
             className={cn(
-              "w-full cursor-pointer border-1",
+              "w-full cursor-pointer border",
               "border-(--button-remove-bg) px-2 py-1",
               "text-(--button-remove-nobg-text)",
               "hover:backdrop-brightness-(--bg-hover-brightness)",

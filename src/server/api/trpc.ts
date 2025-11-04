@@ -39,7 +39,6 @@ export const createTRPCContext = async (opts: {
   };
 };
 
-const xSuperjson = superjson;
 
 /**
  * 2. INITIALIZATION

@@ -169,7 +169,7 @@ const Aggregate = ({
       />
       <div className="flex h-12 basis-16 flex-col">
         <button
-          className="cursor-pointer border-b-1 px-2 py-1 text-xs text-(--regular-text)"
+          className="cursor-pointer border-b px-2 py-1 text-xs text-(--regular-text)"
           onClick={saveData}
         >
           Save
@@ -330,7 +330,7 @@ const GameEdit = ({
           {type === "sub" && (
             <button
               className={cn(
-                "cursor-pointer rounded-xl border-1 px-2 text-(--color-red-500)",
+                "cursor-pointer rounded-xl border px-2 text-red-500",
                 "hover:brightness-(--bg-hover-brightness)",
               )}
               onClick={() => {
@@ -343,7 +343,7 @@ const GameEdit = ({
           {type === "single" && (
             <button
               className={cn(
-                "cursor-pointer rounded-xl border-1 px-2 text-(--color-green-500)",
+                "cursor-pointer rounded-xl border px-2 text-green-500",
                 "hover:brightness-(--bg-hover-brightness)",
               )}
               onClick={() => {
@@ -360,7 +360,7 @@ const GameEdit = ({
         <div className={cn("flex-1 text-center")}>
           <input
             className={cn(
-              "w-full border-b-1 border-dashed",
+              "w-full border-b border-dashed",
               classNames?.id_input,
             )}
             value={editValues.id}
@@ -448,7 +448,7 @@ const GameEdit = ({
       >
         <input
           className={cn(
-            "w-full flex-1 border-b-1 border-dashed",
+            "w-full flex-1 border-b border-dashed",
             classNames?.title_input,
           )}
           value={editValues.title}
@@ -461,7 +461,7 @@ const GameEdit = ({
         />
         <div className="flex h-12 basis-16 flex-col">
           <button
-            className="cursor-pointer border-b-1 px-2 py-1 text-xs text-(--regular-text)"
+            className="cursor-pointer border-b px-2 py-1 text-xs text-(--regular-text)"
             onClick={saveData}
           >
             Save

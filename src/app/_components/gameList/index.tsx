@@ -14,23 +14,23 @@ import { LinkIcon, NotOwnedIcon, OwnedIcon, UnlinkIcon } from "../icon";
 
 const DEFAULT_VIEW_STYLES = {
   id: cn(
-    "md:pr-0 pr-[10px] md:justify-center justify-end",
+    "md:pr-0 pr-2.5 md:justify-center justify-end",
     "not-lg:row-span-2 not-lg:col-1",
   ),
   title: cn("text-(--regular-text)", "not-lg:row-span-2 not-lg:col-3"),
   region: cn("not-lg:col-2"),
-  console: cn("not-lg:col-2 not-lg:border-b-1"),
+  console: cn("not-lg:col-2 not-lg:border-b"),
 } as const;
 
-const SelectedControl = () => {
-  return <></>;
-};
+// const SelectedControl = () => {
+//   return <></>;
+// };
 
 export const GAME_ROW_STYLES = (region?: Region) => {
   return {
     view: {
       all: cn(
-        "justify-center items-center text-center wrap-anywhere border-l-1 border-dashed",
+        "justify-center items-center text-center wrap-anywhere border-l border-dashed",
         "first:border-l-0 border-(--regular-border) h-12 not-lg:h-full",
         "nth-of-type-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
         "nth-of-type-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
@@ -44,7 +44,7 @@ export const GAME_ROW_STYLES = (region?: Region) => {
     },
     edit: {
       all: cn(
-        "justify-center items-center text-center wrap-anywhere border-l-1 border-dashed",
+        "justify-center items-center text-center wrap-anywhere border-l border-dashed",
         "first:border-l-0 border-(--regular-border) h-12 not-lg:h-full",
         "nth-of-type-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
         "nth-of-type-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
@@ -180,7 +180,7 @@ export const GameList = ({
             classNames={{
               btns: {
                 open: cn(
-                  "justify-self-start border-1 rounded-xl px-2",
+                  "justify-self-start border rounded-xl px-2",
                   "hover:backdrop-brightness-(--bg-hover-brightness)",
                   "focus:backdrop-brightness-(--bg-hover-brightness)",
                   "hover:cursor-pointer",
@@ -212,7 +212,7 @@ export const GameList = ({
                   Actuator={
                     <button
                       className={cn(
-                        "justify-self-start rounded-xl border-1 px-2",
+                        "justify-self-start rounded-xl borderx-2",
                         "hover:backdrop-brightness-(--bg-hover-brightness)",
                         "focus:backdrop-brightness-(--bg-hover-brightness)",
                         "hover:cursor-pointer",
@@ -231,7 +231,7 @@ export const GameList = ({
                 <Link
                   target="_blank"
                   className={cn(
-                    "justify-self-start rounded-xl border-1 px-2",
+                    "justify-self-start rounded-xl border px-2",
                     "hover:backdrop-brightness-(--bg-hover-brightness)",
                     "focus:backdrop-brightness-(--bg-hover-brightness)",
                     "hover:cursor-pointer",
@@ -245,7 +245,7 @@ export const GameList = ({
               <div>
                 <button
                   className={cn(
-                    "justify-self-start rounded-xl border-1 px-2",
+                    "justify-self-start rounded-xl border px-2",
                     "hover:backdrop-brightness-(--bg-hover-brightness)",
                     "focus:backdrop-brightness-(--bg-hover-brightness)",
                     "hover:cursor-pointer",
@@ -461,7 +461,7 @@ export const GameList = ({
             }}
             classNames={{
               all: cn(
-                "justify-center flex font-bold md:text-2xl self-start border-r-1",
+                "justify-center flex font-bold md:text-2xl self-start border-r",
                 "border-dashed border-(--regular-border) items-center",
               ),
               id: cn("relative not-lg:row-span-2 not-lg:col-1 not-lg:h-full"),
