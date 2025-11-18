@@ -169,8 +169,6 @@ export const GameList = ({
     areNotOwned: selected.some(([_, state]) => !state.owned),
   };
 
-  console.log(selectedStats);
-
   return (
     <div className="pt-2 text-(--label-text)">
       <div>
@@ -212,7 +210,7 @@ export const GameList = ({
                   Actuator={
                     <button
                       className={cn(
-                        "justify-self-start rounded-xl borderx-2",
+                        "borderx-2 justify-self-start rounded-xl",
                         "hover:backdrop-brightness-(--bg-hover-brightness)",
                         "focus:backdrop-brightness-(--bg-hover-brightness)",
                         "hover:cursor-pointer",
@@ -339,7 +337,7 @@ export const GameList = ({
                             ownership: false,
                           });
                           setSelected([]);
-                          await utils.games.invalidate();
+                          void utils.games.invalidate();
                         }}
                       >
                         <NotOwnedIcon />
@@ -356,7 +354,8 @@ export const GameList = ({
                           await removeGames.mutateAsync(
                             selected.map(([id]) => id),
                           );
-                          await utils.games.invalidate();
+                          setSelected([]);
+                          void utils.games.invalidate();
                         }}
                       >
                         <NotOwnedIcon />
@@ -439,6 +438,7 @@ export const GameList = ({
                             void utils.games.invalidate();
                             setSelected([]);
                           }}
+                          title={"Remove selected from aggregate"}
                         >
                           <UnlinkIcon
                             classNames={{ svg: "w-4 h-4 stroke-red-500" }}

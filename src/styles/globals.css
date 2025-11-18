@@ -40,6 +40,8 @@
 
     --separator: var(--accent-200);
 
+    --caret-color: black;
+
     /* blog */
     --blog-paragraph-text: var(--regular-text);
     --blog-tag-bg: var(--button-neutral-bg);
@@ -67,6 +69,8 @@
     --back-text: var(--accent-200);
     --back-hover-bg: var(--color-slate-600);
     --separator: var(--accent-700);
+
+    --caret-color: var(--accent-500);
 
     /* blog */
     --blog-paragraph-text: var(--regular-text);

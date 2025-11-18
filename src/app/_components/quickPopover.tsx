@@ -75,6 +75,8 @@ type CalculateAnchorFunction = (
   sizes: { actuator?: [number, number]; main: [number, number] },
 ) => [number, number];
 
+const DEFAULT_HOVER_TIMEOUT = 100;
+
 export const QuickPopover = ({
   className,
   children,
@@ -82,11 +84,13 @@ export const QuickPopover = ({
   Actuator,
   ref,
   hideBehavior = "auto",
+  onHoverBehavior,
   calculateAnchor,
 }: PropsWithChildren<{
   standalone?: boolean | string;
   className?: ClassValue;
   hideBehavior?: "auto" | "manual";
+  onHoverBehavior?: { timeout?: number; hideOnLeave?: boolean };
   Actuator: PopoverActuator;
   ref?: RefObject<QuickRef | null>;
   calculateAnchor?: CalculateAnchorFunction;
@@ -100,17 +104,58 @@ export const QuickPopover = ({
   const [actuatorEl, setActuatorEl] = useState<HTMLElement | null>(null);
   const [clickPos, setClickPos] = useState<[number, number]>([0, 0]);
 
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const actuatorElement = useMemo(() => {
-    return cloneElement(Actuator, {
+    const actEl = Actuator;
+    const clearHoverTimeout = () => {
+      if (hoverTimeoutRef.current) {
+        console.log("Clearing hover timeout");
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+    };
+    return cloneElement(actEl, {
       onClick: (e) => {
         setActuatorEl(e.currentTarget as HTMLElement);
         if (!elementRef.current) return;
         setClickPos([e.clientX, e.clientY]);
-        Actuator.props.onClick?.(e);
+        actEl.props.onClick?.(e);
         elementRef.current?.showPopover();
       },
+      onMouseMove: onHoverBehavior
+        ? (e) => {
+            if (hoverTimeoutRef.current) {
+              setClickPos([e.clientX, e.clientY]);
+            }
+          }
+        : undefined,
+      onMouseEnter: onHoverBehavior
+        ? (e) => {
+            if (hoverTimeoutRef.current) clearHoverTimeout();
+            console.log("New hover timoeout", e.clientX, e.clientY);
+            setClickPos([e.clientX, e.clientY]);
+            hoverTimeoutRef.current = setTimeout(() => {
+              console.log("Hover fired");
+              setActuatorEl(e.currentTarget as HTMLElement);
+              if (!elementRef.current) {
+                console.log("noelRef");
+                return;
+              }
+              actEl.props.onClick?.(e);
+              elementRef.current?.showPopover();
+              hoverTimeoutRef.current = null;
+            }, onHoverBehavior.timeout ?? DEFAULT_HOVER_TIMEOUT);
+          }
+        : undefined,
+      onMouseLeave: onHoverBehavior
+        ? () => {
+            clearHoverTimeout();
+            if (onHoverBehavior.hideOnLeave) elementRef.current?.hidePopover();
+          }
+        : undefined,
     });
-  }, [Actuator]);
+  }, [Actuator, onHoverBehavior]);
 
   useImperativeHandle(ref, () => {
     return {
@@ -129,7 +174,7 @@ export const QuickPopover = ({
           if (e.nativeEvent instanceof MouseEvent) {
             const mEv = e as MouseEvent;
             setClickPos([mEv.clientX, mEv.clientY]);
-            Actuator.props.onClick?.(mEv);
+            actuatorElement.props.onClick?.(mEv);
           }
         } else {
           const { x, y } = ev.fnParams[0];

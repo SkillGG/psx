@@ -6,12 +6,12 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type MouseEventHandler,
   type ReactNode,
 } from "react";
 import type { GameWithOwn, GameWithSubs } from "~/utils/gameQueries";
 import { cn } from "~/utils/utils";
-import { CaretDown, CaretUp, NotOwnedIcon, OwnedIcon } from "../icon";
-import { isSafeID } from "./import/parse";
+import { CaretDown, NotOwnedIcon, OwnedIcon } from "../icon";
 import type { Console, Region } from "@prisma/client";
 import { GAME_ROW_STYLES, type SelectState } from ".";
 import { QuickPopover, type QuickRef } from "../quickPopover";
@@ -24,14 +24,12 @@ type GameColumn = keyof Pick<
 type RowMode = "view" | "edit";
 
 type EditFunction = (p: GameWithOwn, n: GameWithOwn) => void;
-type ReparentFuntion = (p: GameWithOwn, n: string | null) => void;
 type ToggleSelectedFunvtion = (id: string, state: SelectState) => void;
 
 const Aggregate = ({
   agg,
   onEdit,
   classNames,
-  reparentSubgames,
   editable,
   selected,
   toggleSelected,
@@ -41,7 +39,6 @@ const Aggregate = ({
   agg: GameWithSubs;
   onEdit: EditFunction;
   editable?: boolean;
-  reparentSubgames: ReparentFuntion;
   toggleable?: boolean;
   toggleSelected: ToggleSelectedFunvtion;
   selected: string[];
@@ -74,22 +71,22 @@ const Aggregate = ({
       title={"Show entries for " + `(${agg.id})`}
     >
       <div>
-        <button
-          className="cursor-pointer rounded-full"
-          onClick={() => {
-            setOpen((p) => !p);
-          }}
-        >
+        <button className="cursor-pointer rounded-full">
           {open ? (
-            <CaretUp
+            <CaretDown
+              key={`${agg.id}_caret`}
               classNames={{
-                svg: "h-5 w-5 hover:-rotate-z-90 rotate-90 transition-transform",
+                svg: cn("h-5 w-5 transition-transform", "fill-(--caret-color)"),
               }}
             />
           ) : (
             <CaretDown
+              key={`${agg.id}_caret`}
               classNames={{
-                svg: "h-5 w-5 hover:rotate-z-90 -rotate-90 transition-transform",
+                svg: cn(
+                  "h-5 w-5 transition-transform -rotate-90 ",
+                  "fill-(--caret-color)",
+                ),
               }}
             />
           )}
@@ -109,6 +106,9 @@ const Aggregate = ({
             type="checkbox"
             className="ml-2"
             checked={agg.subgames.every((sg) => selected.includes(sg.id))}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
             onChange={() => {
               for (const { id, owned } of agg.subgames)
                 toggleSelected(id, { owned: !!owned, parent: agg.id });
@@ -193,7 +193,8 @@ const Aggregate = ({
         classNames?.view?.title,
         "not-lg:col-span-3 not-lg:row-span-1",
       )}
-      onClick={() => {
+      onClick={(e) => {
+        console.log("Clciked! Stopped?", e.isPropagationStopped());
         setOpen((p) => !p);
       }}
       {...mouseProps}
@@ -240,7 +241,6 @@ const Aggregate = ({
       {mode === "view" ? titleViewElement : titleEditElement}
       {open && (
         <SubGames
-          reparent={reparentSubgames}
           key={`subgames_of_${agg.id}`}
           onEdit={onEdit}
           editable={editable}
@@ -258,7 +258,6 @@ const SubGames = ({
   games,
   editable,
   onEdit,
-  reparent,
   // classNames,
   selected,
   toggleSelected,
@@ -267,7 +266,6 @@ const SubGames = ({
   games: GameWithOwn[];
   editable?: boolean;
   onEdit: EditFunction;
-  reparent: ReparentFuntion;
   classNames?: RowClassnames;
   toggleable?: boolean;
   toggleSelected: ToggleSelectedFunvtion;
@@ -280,9 +278,7 @@ const SubGames = ({
         <Game
           onEdit={onEdit}
           classNames={GAME_ROW_STYLES(game.region)}
-          reparent={reparent}
           editable={editable}
-          type="sub"
           key={`subgame_of_${game.parent_id}:${game.id}`}
           game={game}
           selected={selected}
@@ -296,17 +292,13 @@ const SubGames = ({
 };
 
 const GameEdit = ({
-  type = "single",
   game,
   onEdit,
   cancel,
-  reparent,
   classNames,
 }: {
-  type?: "sub" | "single";
   game: GameWithOwn;
   onEdit: EditFunction;
-  reparent: ReparentFuntion;
   cancel: () => void;
   classNames: RowClassnames["edit"];
 }) => {
@@ -326,37 +318,6 @@ const GameEdit = ({
       <div
         className={cn("col-1 flex gap-2 px-2", classNames?.id, classNames?.all)}
       >
-        <div className="mr-auto flex flex-col">
-          {type === "sub" && (
-            <button
-              className={cn(
-                "cursor-pointer rounded-xl border px-2 text-red-500",
-                "hover:brightness-(--bg-hover-brightness)",
-              )}
-              onClick={() => {
-                reparent(game, null);
-              }}
-            >
-              R
-            </button>
-          )}
-          {type === "single" && (
-            <button
-              className={cn(
-                "cursor-pointer rounded-xl border px-2 text-green-500",
-                "hover:brightness-(--bg-hover-brightness)",
-              )}
-              onClick={() => {
-                // add to a parent
-                const newID = prompt("Parent's ID:", game.id);
-                if (!newID || !isSafeID(newID)) return;
-                reparent(game, newID);
-              }}
-            >
-              P
-            </button>
-          )}
-        </div>
         <div className={cn("flex-1 text-center")}>
           <input
             className={cn(
@@ -484,8 +445,6 @@ const Game = ({
   game,
   onEdit,
   editable,
-  type = "single",
-  reparent,
   classNames,
 
   selected,
@@ -495,8 +454,6 @@ const Game = ({
   game: GameWithOwn;
   editable?: boolean;
   onEdit: EditFunction;
-  reparent: ReparentFuntion;
-  type?: "sub" | "single";
   classNames?: RowClassnames;
   toggleable?: boolean;
   toggleSelected: ToggleSelectedFunvtion;
@@ -515,12 +472,41 @@ const Game = ({
           cancel={() => setMode("view")}
           game={game}
           onEdit={onEdit}
-          reparent={reparent}
-          type={type}
         />
       </Fragment>
     );
   }
+
+  const mouseTriggers = {
+    onMouseEnter: (e) => {
+      if (extraTimerRef.current) {
+        clearTimeout(extraTimerRef.current);
+        extraTimerRef.current = null;
+      }
+      extraRef.current?.updateAnchor({ event: e });
+      const timer = setTimeout(() => {
+        extraRef.current?.show();
+      }, 1000);
+      extraTimerRef.current = timer;
+    },
+    onMouseMove: (e) => {
+      extraRef.current?.updateAnchor({ event: e });
+    },
+    onMouseLeave: () => {
+      if (extraTimerRef.current) {
+        clearTimeout(extraTimerRef.current);
+        extraTimerRef.current = null;
+      }
+      extraRef.current?.hide();
+    },
+    onClick: () => {
+      if (extraTimerRef.current) {
+        clearTimeout(extraTimerRef.current);
+        extraTimerRef.current = null;
+      }
+      extraRef.current?.hide();
+    },
+  } as Record<string, MouseEventHandler>;
 
   return (
     <Fragment>
@@ -530,27 +516,7 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.id,
         )}
-        onMouseEnter={(e) => {
-          if (extraTimerRef.current) {
-            clearTimeout(extraTimerRef.current);
-            extraTimerRef.current = null;
-          }
-          extraRef.current?.updateAnchor({ event: e });
-          const timer = setTimeout(() => {
-            extraRef.current?.show();
-          }, 1000);
-          extraTimerRef.current = timer;
-        }}
-        onMouseMove={(e) => {
-          extraRef.current?.updateAnchor({ event: e });
-        }}
-        onMouseLeave={() => {
-          if (extraTimerRef.current) {
-            clearTimeout(extraTimerRef.current);
-            extraTimerRef.current = null;
-            extraRef.current?.hide();
-          }
-        }}
+        {...mouseTriggers}
       >
         {game.additionalInfo ? (
           <QuickPopover
@@ -569,7 +535,7 @@ const Game = ({
         ) : (
           <div className="hidden"></div>
         )}
-        <div className="absolute left-2 flex gap-2">
+        <div className="absolute left-2 flex gap-2" {...mouseTriggers}>
           <div className="mr-auto flex gap-2">
             {toggleable && (game?.owned ? <OwnedIcon /> : <NotOwnedIcon />)}
             {toggleable && (
@@ -595,6 +561,7 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.title,
         )}
+        {...mouseTriggers}
       >
         <span className={cn("flex-1 text-center")}>{game.title}</span>
         {editable && (
@@ -614,6 +581,7 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.console,
         )}
+        {...mouseTriggers}
       >
         {game.console}
       </div>
@@ -623,6 +591,7 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.region,
         )}
+        {...mouseTriggers}
       >
         {game.region}
       </div>
@@ -690,9 +659,6 @@ export const GameRow = ({
           agg={game}
           onEdit={onEdit}
           editable={editable}
-          reparentSubgames={(game, parent_id) => {
-            onEdit(game, { ...game, parent_id });
-          }}
           toggleable={toggleable}
           selected={selected}
           toggleSelected={toggleSelected}
@@ -701,9 +667,6 @@ export const GameRow = ({
         <Game
           classNames={classNames}
           onEdit={onEdit}
-          reparent={(game, parent_id) => {
-            onEdit(game, { ...game, parent_id });
-          }}
           editable={editable}
           game={{ ...game, parent_id: null }}
           toggleable={toggleable}

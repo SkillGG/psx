@@ -17,7 +17,12 @@ const DEFAULT_POPUP_DIALOG_STYLES = cn(
   "m-auto min-w-[50%] rounded-xl border border-(--regular-border) bg-(--dialog-bg)/50 p-6 shadow-lg backdrop-blur-sm text-(--regular-text)",
 );
 
-export type PopoverActuator = ReactElement<{ onClick?: MouseEventHandler }>;
+export type PopoverActuator = ReactElement<{
+  onClick?: MouseEventHandler;
+  onMouseEnter?: MouseEventHandler;
+  onMouseLeave?: MouseEventHandler;
+  onMouseMove?: MouseEventHandler;
+}>;
 
 export type PopoverRef = {
   toggle: () => void;

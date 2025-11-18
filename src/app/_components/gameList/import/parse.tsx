@@ -2,6 +2,7 @@ import type { Console, Game, Region } from "@prisma/client";
 import type { ReactNode } from "react";
 import { z } from "zod/v4";
 import { zodStringToJson } from "~/utils/utils";
+import { QuickPopover } from "../../quickPopover";
 
 const regionMap = {
   ntsc: "NTSC",
@@ -143,14 +144,32 @@ const transformFile = (data: GameList, defConsole: Console) => {
       });
       continue;
     }
-    if (
-      [...ret.data, ...ret.warns.map((q) => q.data)].find(
-        (d) => d.id === cur.id,
-      )
-    ) {
+    const duplicate = [...ret.data, ...ret.warns.map((q) => q.data)].find(
+      (d) => d.id === cur.id,
+    );
+    if (duplicate) {
       ret.warns.push({
         data: cur,
-        message: `Game with this ID already exists!`,
+        message: (
+          <QuickPopover
+            calculateAnchor={({ x, y }, _, { main: [w, h] }) => {
+              return [x - w / 2, y - h - 10];
+            }}
+            Actuator={
+              <button className="cursor-help">This game already exists!</button>
+            }
+            onHoverBehavior={{ timeout: 1000, hideOnLeave: true }}
+          >
+            <div className="block pl-2 text-left text-sm">
+              {duplicate.id}
+              <br />
+              {duplicate.title}
+              <br />
+              {duplicate.parent_id && <>[{duplicate.parent_id}]</>}{" "}
+              {duplicate.console} / {duplicate.region}
+            </div>
+          </QuickPopover>
+        ),
         potentialFixes: [
           fixIgnore(cur.key),
           {
