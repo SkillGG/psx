@@ -1,7 +1,13 @@
 "use client";
 import { api } from "~/trpc/react";
 import { Spinner } from "../spinner";
-import React, { useRef, useState, type ReactNode } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { NewGameCreationForm } from "./create";
 import { GameRow, RawRow } from "./gameRow";
 import { FiltersDialog, type GameListFilters } from "./filters";
@@ -17,9 +23,10 @@ const DEFAULT_VIEW_STYLES = {
     "md:pr-0 pr-2.5 md:justify-center justify-end",
     "not-lg:row-span-2 not-lg:col-1",
   ),
-  title: cn("text-(--regular-text)", "not-lg:row-span-2 not-lg:col-3"),
+  title: cn("text-(--regular-text)", "not-lg:row-span-2 not-lg:col-4"),
   region: cn("not-lg:col-2"),
   console: cn("not-lg:col-2 not-lg:border-b"),
+  additionalInfo: cn("not-lg:col-3 not-lg:row-span-2"),
 } as const;
 
 // const SelectedControl = () => {
@@ -32,10 +39,11 @@ export const GAME_ROW_STYLES = (region?: Region) => {
       all: cn(
         "justify-center items-center text-center wrap-anywhere border-l border-dashed",
         "first:border-l-0 border-(--regular-border) h-12 not-lg:h-full",
-        "nth-of-type-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
-        "nth-of-type-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
-        "nth-of-type-[8n+3]:backdrop-brightness-(--bg-hover-brightness)",
-        "nth-of-type-[8n+4]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+1]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+2]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+3]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+4]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+5]:backdrop-brightness-(--bg-hover-brightness)",
         region === "PAL" && "text-green-500",
         region === "NTSC" && "text-orange-500",
         region === "NTSCJ" && "text-pink-500",
@@ -46,13 +54,15 @@ export const GAME_ROW_STYLES = (region?: Region) => {
       all: cn(
         "justify-center items-center text-center wrap-anywhere border-l border-dashed",
         "first:border-l-0 border-(--regular-border) h-12 not-lg:h-full",
-        "nth-of-type-[8n+1]:backdrop-brightness-(--bg-hover-brightness)",
-        "nth-of-type-[8n+2]:backdrop-brightness-(--bg-hover-brightness)",
-        "nth-of-type-[8n+3]:backdrop-brightness-(--bg-hover-brightness)",
-        "nth-of-type-[8n+4]:backdrop-brightness-(--bg-hover-brightness) cursor-pointer",
+        "nth-of-type-[10n+1]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+2]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+3]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+4]:backdrop-brightness-(--bg-hover-brightness)",
+        "nth-of-type-[10n+5]:backdrop-brightness-(--bg-hover-brightness) cursor-pointer",
       ),
       ...DEFAULT_VIEW_STYLES,
       title_input: cn("text-center text-(--regular-text)"),
+      additionalInfo_input: cn("text-center text-(--regular-text) mx-2"),
       console_input: cn(
         "text-center",
         region === "PAL" && "text-green-500",
@@ -84,7 +94,7 @@ export const DEFAULT_SORT: GameQuerySort = {
 } as const;
 
 const TABLE_DIMENSIONS =
-  "grid-cols-[2fr_1fr_1fr_5fr] grid-flow-dense not-lg:grid-cols-[2fr_2fr_5fr] lg:grid-cols-[1.5fr_1fr_1fr_5.5fr]";
+  "grid-cols-[2fr_1fr_1fr_1fr_5fr] grid-flow-dense not-lg:grid-cols-[2fr_2fr_1fr_5fr] lg:grid-cols-[1.5fr_1fr_1fr_1fr_5.5fr]";
 
 export type SelectState = {
   owned: boolean;
@@ -134,8 +144,15 @@ export const GameList = ({
   const { mutateAsync: removeFromGroup, isPending: isRemovingFromGroup } =
     api.games.removeFromGroup.useMutation();
 
+  const { mutateAsync: batchEditData, isPending: isBatchEditing } =
+    api.games.batchEditData.useMutation();
+
   const isMutating =
-    isEditing || isReparenting || isGrouping || isRemovingFromGroup;
+    isEditing ||
+    isBatchEditing ||
+    isReparenting ||
+    isGrouping ||
+    isRemovingFromGroup;
 
   const popoverRef = useRef<PopoverRef>(null);
 
@@ -159,15 +176,167 @@ export const GameList = ({
       0,
     ) ?? 0;
 
-  const selectedStats = {
-    areSubs: selected.some(([_, state]) => state.parent),
-    areSingle: selected.some(([_, state]) => !state.parent),
-    parents_ids: [
-      ...new Set(selected.map(([_, state]) => state.parent)),
-    ].filter(isNotNull),
-    areOwned: selected.some(([_, state]) => !!state.owned),
-    areNotOwned: selected.some(([_, state]) => !state.owned),
-  };
+  const selectedStats = useMemo(
+    () => ({
+      areSubs: selected.some(([_, state]) => state.parent),
+      areSingle: selected.some(([_, state]) => !state.parent),
+      parents_ids: [
+        ...new Set(selected.map(([_, state]) => state.parent)),
+      ].filter(isNotNull),
+      areOwned: selected.some(([_, state]) => !!state.owned),
+      areNotOwned: selected.some(([_, state]) => !state.owned),
+    }),
+    [selected],
+  );
+
+  const selectedOperations = useMemo(() => {
+    return {
+      markAsOwned: async () => {
+        if (!selectedStats.areNotOwned) return;
+        await toggleOwnership.mutateAsync({
+          ids: selected.map((q) => q[0]),
+          ownership: true,
+        });
+        setSelected([]);
+        await utils.games.invalidate();
+      },
+      markAsUnowned: async () => {
+        if (!selectedStats.areOwned) return;
+        await toggleOwnership.mutateAsync({
+          ids: selected.map((q) => q[0]),
+          ownership: false,
+        });
+        setSelected([]);
+        await utils.games.invalidate();
+      },
+      fixSelectedLangExtras: async () => {
+        if (!selected.length) return;
+
+        console.log("Fixing languages of games!");
+
+        const fixExtras = (
+          extra: string | null | undefined,
+        ): string | null | { done: false } => {
+          if (!extra) return null;
+
+          console.log("Fixing langhuage from", extra);
+
+          const languages =
+            /Langs: (?<ls>(?:[A-Z][a-z]*,)*(?:[A-Z][a-z]*))/.exec(extra);
+
+          if (languages?.groups?.ls) {
+            const langs = languages.groups.ls.split(",");
+
+            const lMap = {
+              E: "en",
+              English: "en",
+              J: "ja",
+              F: "fr",
+              G: "de",
+              I: "it",
+              S: "es",
+              Du: "nl",
+              D: "da",
+              Fi: "fi",
+              N: "no",
+              P: "pt",
+              Sw: "sv",
+            } as const;
+
+            const out = langs
+              .map((l) => {
+                if (l in lMap) {
+                  return lMap[l as keyof typeof lMap];
+                }
+                console.warn("Skipping", l);
+                return l;
+              })
+              .filter(isNotNull)
+              .join(", ");
+
+            console.log(extra, " => ", out);
+
+            return out;
+          }
+
+          console.log("Skipped entry");
+
+          return { done: false };
+        };
+
+        const gamesToFix = games
+          ?.map((q) => [q, ...q.subgames])
+          .flat(2)
+          ?.filter((g) => !!selected.some((s) => s[0] === g.id))
+          .map((gm) => {
+            const fixed = fixExtras(gm.additionalInfo);
+            if (
+              fixed === gm.additionalInfo ||
+              (fixed && typeof fixed === "object")
+            ) {
+              console.log("Skipping", gm);
+              return null;
+            }
+            return {
+              id: gm.id,
+              data: { ...gm, additionalInfo: fixed },
+            };
+          })
+          .filter(isNotNull);
+
+        console.log(gamesToFix);
+
+        if (!gamesToFix?.length) return;
+
+        await batchEditData(gamesToFix);
+
+        setSelected([]);
+        await utils.games.invalidate();
+      },
+    };
+  }, [
+    selectedStats.areNotOwned,
+    selectedStats.areOwned,
+    toggleOwnership,
+    selected,
+    utils.games,
+    games,
+    batchEditData,
+  ]);
+
+  useEffect(() => {
+    function handleKeyboardShortcuts(e: KeyboardEvent) {
+      void (async () => {
+        console.log(e.code);
+
+        const shortcuts: [string, () => Promise<void> | void, boolean][] = [
+          ["KeyA", selectedOperations.markAsOwned, !e.shiftKey && !!toggleable],
+          [
+            "KeyA",
+            selectedOperations.markAsUnowned,
+            e.shiftKey && !!toggleable,
+          ],
+          [
+            "KeyF",
+            selectedOperations.fixSelectedLangExtras,
+            e.shiftKey && !!editable,
+          ],
+        ];
+
+        for (const [code, action, condition] of shortcuts) {
+          if (e.code === code && condition) await action();
+        }
+      })();
+    }
+
+    console.log("+OKD");
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+
+    return () => {
+      console.log("-OKD");
+      window.removeEventListener("keydown", handleKeyboardShortcuts);
+    };
+  }, [editable, selectedOperations, toggleable]);
 
   return (
     <div className="pt-2 text-(--label-text)">
@@ -316,12 +485,7 @@ export const GameList = ({
                         className="cursor-pointer text-sm"
                         title="Mark as owned"
                         onClick={async () => {
-                          await toggleOwnership.mutateAsync({
-                            ids: selected.map((q) => q[0]),
-                            ownership: true,
-                          });
-                          setSelected([]);
-                          await utils.games.invalidate();
+                          await selectedOperations.markAsOwned();
                         }}
                       >
                         <OwnedIcon />
@@ -458,6 +622,7 @@ export const GameList = ({
               ),
               region: "Region",
               title: "Title",
+              additionalInfo: "Extra",
             }}
             classNames={{
               all: cn(
@@ -465,9 +630,12 @@ export const GameList = ({
                 "border-dashed border-(--regular-border) items-center",
               ),
               id: cn("relative not-lg:row-span-2 not-lg:col-1 not-lg:h-full"),
-              title: cn("not-lg:row-span-2 not-lg:col-3 not-lg:h-full"),
+              title: cn("not-lg:row-span-2 not-lg:col-4 not-lg:h-full"),
+              additionalInfo: cn(
+                "not-lg:row-span-2 not-lg:col-3 not-lg:h-full",
+              ),
               region: cn("not-lg:col-2"),
-              console: cn("not-lg:col-2"),
+              console: cn("not-lg:col-2 not-lg:border-b"),
             }}
           />
         </div>

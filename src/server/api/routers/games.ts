@@ -2,7 +2,7 @@ import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import type { Game, PrismaClient } from "@prisma/client";
 import { adminProcedure, userProcedure } from "../auth";
-import { queryGames } from "~/utils/gameQueries";
+import { queryGames, updateMultipleGamesQuery } from "~/utils/gameQueries";
 import { isNotNull } from "~/utils/utils";
 
 import chalk from "chalk";
@@ -10,7 +10,7 @@ import chalk from "chalk";
 const ConsoleType = z.enum(["PS1", "PS2", "PSP", "NA"]);
 const RegionType = z.enum(["PAL", "NTSC", "NTSCJ", "NA"]);
 
-const GameData = z.object({
+export const GameData = z.object({
   id: z.string(),
   title: z.string(),
   console: ConsoleType,
@@ -234,6 +234,25 @@ export const gameRouter = createTRPCRouter({
       });
 
       return game;
+    }),
+  batchEditData: adminProcedure
+    .input(
+      z.array(
+        z.object({ id: z.string(), data: GameData.omit({ parent_id: true }) }),
+      ),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [updateQuery, vars] = updateMultipleGamesQuery(input);
+
+      console.log("========= QUERY ==========\n", chalk.red(updateQuery));
+      console.log("========= VARS ===========");
+      console.log(
+        vars
+          .map((q, i) => `${chalk.blue(`$${i + 1}`)}: ${chalk.red(q)}`)
+          .join("\n"),
+      );
+
+      await ctx.db.$queryRawUnsafe(updateQuery, ...vars);
     }),
   removeFromGroup: adminProcedure
     .input(z.array(z.string()))

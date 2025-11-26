@@ -3,7 +3,8 @@ import type { PrismaClient } from "@prisma/client";
 import { isNotNull } from "./utils";
 
 import chalk from "chalk";
-import type { SortSchema } from "~/server/api/routers/games";
+import type { GameData, SortSchema } from "~/server/api/routers/games";
+import type z from "zod";
 
 export type GameWithOwn = Game & {
   owned?: boolean;
@@ -405,4 +406,44 @@ where parent_id = ANY($1)
 ${subSortClause(true) ?? ""};`,
     },
   };
+};
+
+export const updateMultipleGamesQuery = (
+  games: { id: string; data: Omit<z.infer<typeof GameData>, "parent_id"> }[],
+): [string, unknown[]] => {
+  const vars: unknown[] = [];
+
+  const query = `update "Game" as g
+set
+  id = v.id,
+  title = v.title,
+  console = v.console,
+  region = v.region,
+  "additionalInfo" = v.ai
+from (values ${games
+    .map((game) => {
+      const varNum = vars.length;
+
+      const cVars = [
+        game.id,
+        game.data.id,
+        game.data.title,
+        game.data.console,
+        game.data.region,
+        game.data.additionalInfo ?? null,
+      ];
+
+      const qVars = [...cVars.map((_, i) => `$${varNum + i + 1}`)];
+
+      qVars[3] = `CAST(${qVars[3]} AS "Console")`;
+      qVars[4] = `CAST(${qVars[4]} AS "Region")`;
+
+      vars.push(...cVars);
+
+      return `(${qVars.join(", ")})`;
+    })
+    .join(",\n")}) as v(oid, id, title, console, region, ai)
+where g.id = v.oid;`;
+
+  return [query, vars];
 };

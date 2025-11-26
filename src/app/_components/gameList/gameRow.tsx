@@ -1,24 +1,16 @@
 "use client";
 
 import type { ClassValue } from "clsx";
-import {
-  Fragment,
-  useRef,
-  useState,
-  type MouseEvent,
-  type MouseEventHandler,
-  type ReactNode,
-} from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import type { GameWithOwn, GameWithSubs } from "~/utils/gameQueries";
 import { cn } from "~/utils/utils";
 import { CaretDown, NotOwnedIcon, OwnedIcon } from "../icon";
 import type { Console, Region } from "@prisma/client";
 import { GAME_ROW_STYLES, type SelectState } from ".";
-import { QuickPopover, type QuickRef } from "../quickPopover";
 
 type GameColumn = keyof Pick<
   GameWithOwn,
-  "id" | "console" | "region" | "title"
+  "id" | "console" | "region" | "title" | "additionalInfo"
 >;
 
 type RowMode = "view" | "edit";
@@ -119,75 +111,50 @@ const Aggregate = ({
     </div>
   );
 
-  const extraRef = useRef<QuickRef>(null);
-  const extraTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-  const mouseProps = {
-    onMouseEnter: (e: MouseEvent) => {
-      if (extraTimerRef.current) {
-        clearTimeout(extraTimerRef.current);
-        extraTimerRef.current = null;
-      }
-      extraRef.current?.updateAnchor({ event: e });
-      const timer = setTimeout(() => {
-        extraRef.current?.show();
-      }, 1000);
-      extraTimerRef.current = timer;
-    },
-    onMouseMove: (e: MouseEvent) => {
-      extraRef.current?.updateAnchor({ event: e });
-    },
-    onMouseLeave: () => {
-      if (extraTimerRef.current) {
-        clearTimeout(extraTimerRef.current);
-        extraTimerRef.current = null;
-        extraRef.current?.hide();
-      }
-    },
-  } as const;
-
   const titleEditElement = (
-    <div
-      className={cn(
-        "relative col-span-4 flex",
-        classNames?.edit?.all,
-        classNames?.edit?.title,
-        "not-lg:col-span-3 not-lg:row-span-1",
-      )}
-      {...mouseProps}
-    >
-      {listToggle}
-      <input
-        className={cn("w-full flex-1", classNames?.edit?.title_input)}
-        value={editValues.title}
-        onChange={({ currentTarget: { value: title } }) => {
-          setEditValues((p) => (!p ? p : { ...p, title }));
-        }}
-        onKeyDown={({ code }) => {
-          if (code === "Enter") saveData();
-        }}
-      />
-      <div className="flex h-12 basis-16 flex-col">
-        <button
-          className="cursor-pointer border-b px-2 py-1 text-xs text-(--regular-text)"
-          onClick={saveData}
-        >
-          Save
-        </button>
-        <button
-          className="cursor-pointer px-2 py-1 text-xs text-(--regular-text)"
-          onClick={reset}
-        >
-          Cancel
-        </button>
+    <>
+      <div></div>
+      <div
+        className={cn(
+          "relative col-span-4 flex",
+          classNames?.edit?.all,
+          classNames?.edit?.title,
+          "not-lg:col-span-3 not-lg:row-span-1",
+        )}
+      >
+        {listToggle}
+        <input
+          className={cn("w-full flex-1", classNames?.edit?.title_input)}
+          value={editValues.title}
+          onChange={({ currentTarget: { value: title } }) => {
+            setEditValues((p) => (!p ? p : { ...p, title }));
+          }}
+          onKeyDown={({ code }) => {
+            if (code === "Enter") saveData();
+          }}
+        />
+        <div className="flex h-12 basis-16 flex-col">
+          <button
+            className="cursor-pointer border-b px-2 py-1 text-xs text-(--regular-text)"
+            onClick={saveData}
+          >
+            Save
+          </button>
+          <button
+            className="cursor-pointer px-2 py-1 text-xs text-(--regular-text)"
+            onClick={reset}
+          >
+            Cancel
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 
   const titleViewElement = (
     <div
       className={cn(
-        "relative col-span-4 flex cursor-pointer text-center",
+        "relative col-span-5 flex cursor-pointer text-center",
         agg?.owned && "font-extrabold underline",
         classNames?.view?.all,
         classNames?.view?.title,
@@ -197,12 +164,12 @@ const Aggregate = ({
         console.log("Clciked! Stopped?", e.isPropagationStopped());
         setOpen((p) => !p);
       }}
-      {...mouseProps}
     >
       {listToggle}
       <span className={cn("flex-1 text-center", agg?.owned && "text-red-500")}>
         {agg.title}
       </span>
+      {agg.additionalInfo && <span>&emsp;({agg.additionalInfo})</span>}
       {editable && (
         <button
           className="h-12 basis-16 cursor-pointer px-2 py-1"
@@ -221,23 +188,8 @@ const Aggregate = ({
     <Fragment key={`gameaggregate_${agg.id}`}>
       <div className="hidden"></div>
       <div className="hidden"></div>
-      {agg.additionalInfo ? (
-        <QuickPopover
-          hideBehavior="manual"
-          calculateAnchor={({ x, y }, _, { main }) => {
-            const top =
-              y - (main[1] + 20) > 50 ? y - main[1] - 20 : y + main[1];
-            return [x - main[0] / 2, top];
-          }}
-          Actuator={<button className="hidden"></button>}
-          ref={extraRef}
-          className={cn("h-fit w-fit rounded-xl p-3")}
-        >
-          <div className="text-3xl">{agg.additionalInfo}</div>
-        </QuickPopover>
-      ) : (
-        <div className="hidden"></div>
-      )}
+      <div className="hidden"></div>
+      <div className="hidden"></div>
       {mode === "view" ? titleViewElement : titleEditElement}
       {open && (
         <SubGames
@@ -273,7 +225,7 @@ const SubGames = ({
 }) => {
   return (
     <Fragment>
-      <span className="col-span-4 box-border block border-t-[6px] [border-style:ridge] border-(--regular-border)"></span>
+      <span className="col-span-5 box-border block border-t-[6px] [border-style:ridge] border-(--regular-border)"></span>
       {games.map((game) => (
         <Game
           onEdit={onEdit}
@@ -286,7 +238,7 @@ const SubGames = ({
           toggleable={toggleable}
         />
       ))}
-      <span className="col-span-4 box-border block border-[6px] border-x-0 border-b-0 [border-style:ridge] border-(--regular-border)"></span>
+      <span className="col-span-5 box-border block border-[6px] border-x-0 border-b-0 [border-style:ridge] border-(--regular-border)"></span>
     </Fragment>
   );
 };
@@ -310,7 +262,7 @@ const GameEdit = ({
       parent_id: game.parent_id,
       region: editValues.region,
       title: editValues.title,
-      additionalInfo: game.additionalInfo,
+      additionalInfo: editValues.additionalInfo,
     });
   };
   return (
@@ -402,7 +354,29 @@ const GameEdit = ({
       </div>
       <div
         className={cn(
-          "col-4 flex gap-2 pl-2",
+          "col-4 flex",
+          classNames?.additionalInfo,
+          classNames?.all,
+        )}
+      >
+        <input
+          className={cn(
+            "w-full flex-1 border-b border-dashed",
+            classNames?.additionalInfo_input,
+          )}
+          value={editValues.additionalInfo ?? ""}
+          placeholder="Additional info"
+          onChange={({ currentTarget: { value: additionalInfo } }) => {
+            setEditValues((p) => ({ ...p, additionalInfo }));
+          }}
+          onKeyDown={({ code }) => {
+            if (code === "Enter") saveData();
+          }}
+        />
+      </div>
+      <div
+        className={cn(
+          "col-5 flex gap-2 pl-2",
           classNames?.title,
           classNames?.all,
         )}
@@ -461,9 +435,6 @@ const Game = ({
 }) => {
   const [mode, setMode] = useState<RowMode>("view");
 
-  const extraRef = useRef<QuickRef>(null);
-  const extraTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
-
   if (mode === "edit") {
     return (
       <Fragment>
@@ -477,37 +448,6 @@ const Game = ({
     );
   }
 
-  const mouseTriggers = {
-    onMouseEnter: (e) => {
-      if (extraTimerRef.current) {
-        clearTimeout(extraTimerRef.current);
-        extraTimerRef.current = null;
-      }
-      extraRef.current?.updateAnchor({ event: e });
-      const timer = setTimeout(() => {
-        extraRef.current?.show();
-      }, 1000);
-      extraTimerRef.current = timer;
-    },
-    onMouseMove: (e) => {
-      extraRef.current?.updateAnchor({ event: e });
-    },
-    onMouseLeave: () => {
-      if (extraTimerRef.current) {
-        clearTimeout(extraTimerRef.current);
-        extraTimerRef.current = null;
-      }
-      extraRef.current?.hide();
-    },
-    onClick: () => {
-      if (extraTimerRef.current) {
-        clearTimeout(extraTimerRef.current);
-        extraTimerRef.current = null;
-      }
-      extraRef.current?.hide();
-    },
-  } as Record<string, MouseEventHandler>;
-
   return (
     <Fragment>
       <div
@@ -516,26 +456,8 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.id,
         )}
-        {...mouseTriggers}
       >
-        {game.additionalInfo ? (
-          <QuickPopover
-            hideBehavior="manual"
-            calculateAnchor={({ x, y }, _, { main }) => {
-              const top =
-                y - (main[1] + 20) > 50 ? y - main[1] - 20 : y + main[1];
-              return [x - main[0] / 2, top];
-            }}
-            Actuator={<button className="hidden"></button>}
-            ref={extraRef}
-            className={cn("h-fit w-fit rounded-xl p-3")}
-          >
-            <div className="text-3xl">{game.additionalInfo}</div>
-          </QuickPopover>
-        ) : (
-          <div className="hidden"></div>
-        )}
-        <div className="absolute left-2 flex gap-2" {...mouseTriggers}>
+        <div className="absolute left-2 flex gap-2">
           <div className="mr-auto flex gap-2">
             {toggleable && (game?.owned ? <OwnedIcon /> : <NotOwnedIcon />)}
             {toggleable && (
@@ -556,12 +478,20 @@ const Game = ({
       </div>
       <div
         className={cn(
-          "col-4 flex",
+          "col-4 flex wrap-anywhere",
+          classNames?.view?.all,
+          classNames?.view?.additionalInfo,
+        )}
+      >
+        {game.additionalInfo?.replaceAll("Langs: ", "")}
+      </div>
+      <div
+        className={cn(
+          "col-5 flex",
           game?.owned && "font-extrabold underline",
           classNames?.view?.all,
           classNames?.view?.title,
         )}
-        {...mouseTriggers}
       >
         <span className={cn("flex-1 text-center")}>{game.title}</span>
         {editable && (
@@ -581,7 +511,6 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.console,
         )}
-        {...mouseTriggers}
       >
         {game.console}
       </div>
@@ -591,7 +520,6 @@ const Game = ({
           classNames?.view?.all,
           classNames?.view?.region,
         )}
-        {...mouseTriggers}
       >
         {game.region}
       </div>
@@ -617,7 +545,16 @@ export const RawRow = ({
       <div className={cn("col-3 flex", classNames?.all, classNames?.region)}>
         {raw.region}
       </div>
-      <div className={cn("col-4 flex", classNames?.all, classNames?.title)}>
+      <div
+        className={cn(
+          "col-4 flex",
+          classNames?.all,
+          classNames?.additionalInfo,
+        )}
+      >
+        {raw.additionalInfo}
+      </div>
+      <div className={cn("col-5 flex", classNames?.all, classNames?.title)}>
         {raw.title}
       </div>
     </Fragment>
